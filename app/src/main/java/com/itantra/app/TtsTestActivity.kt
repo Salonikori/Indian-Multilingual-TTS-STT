@@ -33,15 +33,35 @@ class TtsTestActivity : ComponentActivity() {
 
         router   = PlaybackRouter(this)
         val engine = ManagerTtsEngine(manager)
+        
         pipeline = TtsPipeline(
             engine    = engine,
-            playChunk = { chunk, kind ->
+            playChunk = { chunk, kind, sentenceInfo ->
                 val playKind = if (kind == TtsPipeline.PlaybackKind.ALERT)
                     PlaybackKind.ALERT else PlaybackKind.NORMAL
+                    
+                // Log streaming progress
+                println("TtsTestActivity: Playing sentence ${sentenceInfo.sentenceIndex + 1}/${sentenceInfo.totalSentences}")
+                if (sentenceInfo.isFirstSentence) {
+                    println("TtsTestActivity: First sentence starting - streaming confirmed!")
+                }
+                
+                // Measure time to first audio more precisely
+                val playStartTime = System.currentTimeMillis()
                 router.play(chunk.samples, chunk.sampleRate, playKind)
-                // Update metrics after first chunk completes
+                
+                // Update metrics after first chunk starts playing
                 synthesisTimeMs.value = chunk.synthesisMillis
-                rtf.value             = chunk.rtf
+                rtf.value = chunk.rtf
+                
+                // Update time to first audio only for the first sentence
+                if (sentenceInfo.isFirstSentence) {
+                    timeToFirstMs.value?.let { requestTime ->
+                        val actualTimeToFirst = playStartTime - requestTime
+                        timeToFirstMs.value = actualTimeToFirst
+                        println("TtsTestActivity: Time to first audio: ${actualTimeToFirst}ms")
+                    }
+                }
             },
             scope = lifecycleScope
         )
@@ -59,11 +79,16 @@ class TtsTestActivity : ComponentActivity() {
                     languages       = listOf(langCode to langLabel),
                     onPlay          = { text, _, isAlert ->
                         val requestedAt = System.currentTimeMillis()
+                        timeToFirstMs.value = requestedAt  // Store request time
+                        
+                        println("TtsTestActivity: Starting TTS request at ${requestedAt}")
+                        println("TtsTestActivity: Text length: ${text.length} chars")
+                        println("TtsTestActivity: Mode: ${if (isAlert) "ALERT" else "NORMAL"}")
+                        
                         val kind = if (isAlert) TtsPipeline.PlaybackKind.ALERT
                                    else         TtsPipeline.PlaybackKind.NORMAL
                         if (isAlert) router.preemptQueuedNormalMessages()
                         pipeline.speak(text, langCode, kind)
-                        timeToFirstMs.value = System.currentTimeMillis() - requestedAt
                     },
                     synthesisTimeMs = synthesisTimeMs.value,
                     rtf             = rtf.value,

@@ -10,21 +10,23 @@
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application android:theme="@android:style/Theme.Material.Light.NoActionBar"
-        android:label="iTantra Smoke Test" android:usesCleartextTraffic="false">
+        android:label="iTantra" android:usesCleartextTraffic="false">
         <activity android:name=".LanguagesActivity" android:exported="false" />
         <activity android:name=".BenchmarkActivity" android:exported="false" />
         <activity android:name=".LiveSttActivity" android:exported="false" />
         <activity android:name=".TtsTestActivity" android:exported="false" />
+        <activity android:name=".BluetoothTestActivity" android:exported="false" />
         <service android:name=".audio.AudioCaptureService" android:exported="false"
             android:foregroundServiceType="microphone" />
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".CommunicationActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".MainActivity" android:exported="false" />
     </application>
 </manifest>

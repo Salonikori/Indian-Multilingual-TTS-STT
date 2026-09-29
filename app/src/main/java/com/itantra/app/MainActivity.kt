@@ -102,6 +102,7 @@ private fun SmokeScreen(activity: ComponentActivity) {
             Text("Offline model validation", style = MaterialTheme.typography.headlineSmall)
             OutlinedButton(onClick = { activity.startActivity(Intent(activity, LanguagesActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Languages and model status · 10 languages") }
             OutlinedButton(onClick = { activity.startActivity(Intent(activity, BenchmarkActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Benchmark screen · metrics and export") }
+            OutlinedButton(onClick = { activity.startActivity(Intent(activity, BluetoothTestActivity::class.java)) }, modifier = Modifier.fillMaxWidth()) { Text("Bluetooth test · Phase 5 message exchange") }
             OutlinedButton(
                 enabled = loaded.ttsLoaded,
                 onClick = { activity.startActivity(Intent(activity, TtsTestActivity::class.java)) },
