@@ -1,0 +1,48 @@
+package com.itantra.app.audio
+
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import java.util.concurrent.atomic.AtomicBoolean
+
+data class AudioFrame(val samples: ShortArray, val sampleRate: Int, val capturedAtNanos: Long)
+
+class AudioCapture(private val frameMillis: Int = 20) {
+    private val running = AtomicBoolean(false)
+    private val channel = Channel<AudioFrame>(Channel.BUFFERED)
+    val frames: Flow<AudioFrame> = channel.receiveAsFlow()
+    private var recorder: AudioRecord? = null
+    private var worker: Thread? = null
+
+    fun start() {
+        check(running.compareAndSet(false, true)) { "Already capturing" }
+        val rate = 16_000
+        val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        check(min > 0) { running.set(false); "AudioRecord buffer query failed: $min" }
+        val r = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, rate,
+            AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, rate))
+        check(r.state == AudioRecord.STATE_INITIALIZED) { r.release(); running.set(false); "AudioRecord init failed" }
+        recorder = r
+        r.startRecording()
+        worker = Thread({
+            val buffer = ShortArray(rate * frameMillis / 1000)
+            try {
+                while (running.get()) {
+                    val n = r.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
+                    if (n > 0) channel.trySend(AudioFrame(buffer.copyOf(n), rate, System.nanoTime()))
+                }
+            } finally { runCatching { r.stop() } }
+        }, "iTantra-AudioRecord").apply { start() }
+    }
+
+    fun stop() {
+        running.set(false)
+        runCatching { recorder?.stop() }
+        worker?.join(500)
+        recorder?.release()
+        recorder = null; worker = null
+    }
+}

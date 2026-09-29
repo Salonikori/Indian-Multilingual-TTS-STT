@@ -1,0 +1,23 @@
+*.iml
+.gradle/
+.idea/
+local.properties
+**/build/
+*.apk
+*.aab
+app/libs/*.aar
+app/src/main/assets/models/**/*.onnx
+app/src/main/assets/models/**/*.bin
+app/src/main/assets/models/**/*.pt
+# Local model assets and private benchmark data
+.venv/
+models_lab/.venv/
+optional_model_manager/.venv/
+models_lab/models/**
+!models_lab/models/.gitkeep
+models_lab/results/**
+!models_lab/results/.gitkeep
+models_lab/test_audio/**/*.wav
+models_lab/test_audio/**/*.txt
+!models_lab/test_audio/README.md
+optional_model_manager/**/__pycache__/

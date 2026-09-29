@@ -1,0 +1,14 @@
+<resources>
+    <string-array name="alert_presets_hi">
+        <item>आपातकाल है, मुझे मदद चाहिए।</item>
+        <item>कृपया तुरंत रुकें।</item>
+        <item>मुझे सहायता चाहिए, कृपया यहाँ आएँ।</item>
+        <item>सावधान, यहाँ खतरा है।</item>
+    </string-array>
+    <string-array name="alert_presets_en">
+        <item>Emergency, I need help.</item>
+        <item>Please stop immediately.</item>
+        <item>I need assistance. Please come here.</item>
+        <item>Warning, there is danger here.</item>
+    </string-array>
+</resources>

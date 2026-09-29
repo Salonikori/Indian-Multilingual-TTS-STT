@@ -1,0 +1,1 @@
+Add 20–30 recorded utterances per language, resampled to mono 16 kHz PCM WAV. Add `references.tsv` with tab-separated header `language<TAB>wav_path<TAB>reference`. Example row: `hi<TAB>test_audio/hi/utt001.wav<TAB>मुझे मदद चाहिए`. Do not use the example as a real test record. Keep reference text in the script's accepted TSV format.

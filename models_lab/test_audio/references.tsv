@@ -1,0 +1,61 @@
+language	wav_path	reference
+hi	test_audio/hi/hi_01.wav	नमस्ते, मेरा नाम सलोनी है।
+hi	test_audio/hi/hi_02.wav	आज मौसम बहुत अच्छा है।
+hi	test_audio/hi/hi_03.wav	मुझे कॉलेज जाना है।
+hi	test_audio/hi/hi_04.wav	कृपया दरवाज़ा बंद कर दीजिए।
+hi	test_audio/hi/hi_05.wav	मेरा फोन कहाँ रखा है?
+hi	test_audio/hi/hi_06.wav	मैं कंप्यूटर साइंस की पढ़ाई कर रही हूँ।
+hi	test_audio/hi/hi_07.wav	आज मुझे एक नया प्रोजेक्ट पूरा करना है।
+hi	test_audio/hi/hi_08.wav	क्या आप मेरी आवाज़ सुन सकते हैं?
+hi	test_audio/hi/hi_09.wav	यह रास्ता रेलवे स्टेशन तक जाता है।
+hi	test_audio/hi/hi_10.wav	मुझे एक गिलास पानी चाहिए।
+hi	test_audio/hi/hi_11.wav	कृपया धीरे बोलिए।
+hi	test_audio/hi/hi_12.wav	मैं कल सुबह जल्दी उठूँगी।
+hi	test_audio/hi/hi_13.wav	यह किताब मेज़ के ऊपर रखी है।
+hi	test_audio/hi/hi_14.wav	मेरे दोस्त आज घर आने वाले हैं।
+hi	test_audio/hi/hi_15.wav	हमें समय पर बस पकड़नी है।
+hi	test_audio/hi/hi_16.wav	क्या आप मुझे रास्ता बता सकते हैं?
+hi	test_audio/hi/hi_17.wav	मुझे हिंदी और अंग्रेज़ी दोनों समझ आती हैं।
+hi	test_audio/hi/hi_18.wav	कंप्यूटर चालू करने के लिए बटन दबाइए।
+hi	test_audio/hi/hi_19.wav	आज कॉलेज में एक महत्वपूर्ण बैठक है।
+hi	test_audio/hi/hi_20.wav	मैं अपनी आवाज़ की पहचान जाँच रही हूँ।
+hi	test_audio/hi/hi_21.wav	कृपया खिड़की थोड़ी खोल दीजिए।
+hi	test_audio/hi/hi_22.wav	बाहर बहुत तेज़ बारिश हो रही है।
+hi	test_audio/hi/hi_23.wav	मुझे शाम को बाज़ार जाना है।
+hi	test_audio/hi/hi_24.wav	इस फ़ाइल को सही फ़ोल्डर में रखिए।
+hi	test_audio/hi/hi_25.wav	क्या आपका इंटरनेट ठीक से चल रहा है?
+hi	test_audio/hi/hi_26.wav	हम कल इस काम को फिर से करेंगे।
+hi	test_audio/hi/hi_27.wav	मुझे अपने प्रोजेक्ट की जाँच करनी है।
+hi	test_audio/hi/hi_28.wav	यह संदेश मुझे अभी मिला है।
+hi	test_audio/hi/hi_29.wav	कृपया मेरा नाम ध्यान से सुनिए।
+hi	test_audio/hi/hi_30.wav	आज का परीक्षण यहीं समाप्त होता है।
+en	test_audio/en/en_01.wav	Hello, my name is Saloni.
+en	test_audio/en/en_02.wav	The weather is very pleasant today.
+en	test_audio/en/en_03.wav	I have to go to college.
+en	test_audio/en/en_04.wav	Please close the door.
+en	test_audio/en/en_05.wav	Where did I keep my phone?
+en	test_audio/en/en_06.wav	I am studying computer science.
+en	test_audio/en/en_07.wav	I need to finish a new project today.
+en	test_audio/en/en_08.wav	Can you hear my voice?
+en	test_audio/en/en_09.wav	This road leads to the railway station.
+en	test_audio/en/en_10.wav	I would like a glass of water.
+en	test_audio/en/en_11.wav	Please speak slowly.
+en	test_audio/en/en_12.wav	I will wake up early tomorrow morning.
+en	test_audio/en/en_13.wav	The book is on the table.
+en	test_audio/en/en_14.wav	My friends are coming home today.
+en	test_audio/en/en_15.wav	We need to catch the bus on time.
+en	test_audio/en/en_16.wav	Could you please tell me the way?
+en	test_audio/en/en_17.wav	I understand both Hindi and English.
+en	test_audio/en/en_18.wav	Press the button to turn on the computer.
+en	test_audio/en/en_19.wav	There is an important meeting at college today.
+en	test_audio/en/en_20.wav	I am checking my speech recognition system.
+en	test_audio/en/en_21.wav	Please open the window a little.
+en	test_audio/en/en_22.wav	It is raining heavily outside.
+en	test_audio/en/en_23.wav	I need to go to the market this evening.
+en	test_audio/en/en_24.wav	Put this file in the correct folder.
+en	test_audio/en/en_25.wav	Is your internet connection working properly?
+en	test_audio/en/en_26.wav	We will do this task again tomorrow.
+en	test_audio/en/en_27.wav	I need to test my project.
+en	test_audio/en/en_28.wav	I received this message just now.
+en	test_audio/en/en_29.wav	Please listen carefully to my name.
+en	test_audio/en/en_30.wav	The test ends here for today.
