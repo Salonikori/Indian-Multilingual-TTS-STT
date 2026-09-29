@@ -16,6 +16,7 @@
         <activity android:name=".LiveSttActivity" android:exported="false" />
         <activity android:name=".TtsTestActivity" android:exported="false" />
         <activity android:name=".BluetoothTestActivity" android:exported="false" />
+        <activity android:name=".MeasurementActivity" android:exported="false" />
         <service android:name=".audio.AudioCaptureService" android:exported="false"
             android:foregroundServiceType="microphone" />
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
