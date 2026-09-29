@@ -29,6 +29,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.itantra.app.audio.*
 import com.itantra.app.models.*
+import com.itantra.app.benchmark.BenchmarkStore
 import com.itantra.app.session.*
 import com.itantra.app.transport.*
 import kotlinx.coroutines.Job
@@ -43,6 +44,17 @@ class CommunicationActivity : ComponentActivity() {
     private var audioCapture: AudioCapture? = null
     private var liveSttController: Any? = null
     private var conversationMachine = ConversationStateMachine()
+    private var benchmarkStore: BenchmarkStore? = null
+    private val pipelineEventSink = PipelineEventSink { event ->
+        benchmarkStore?.add(
+            metric = "pipeline_${event.name}_ms",
+            value = event.elapsedRealtimeNanos / 1_000_000.0,
+            unit = "ms",
+            method = "pipeline_timing",
+            timestampEpochMs = System.currentTimeMillis()
+        )
+        println("PipelineEvent: ${event.name} at ${event.elapsedRealtimeNanos / 1_000_000}ms - ${event.details}")
+    }
     
     private var currentLanguage by mutableStateOf("hi")
     private var currentMode by mutableStateOf(ConversationMode.PTT)
@@ -55,6 +67,10 @@ class CommunicationActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize benchmark store
+        benchmarkStore = BenchmarkStore(this)
+        benchmarkStore?.setTestContext("Phase 7 Pipeline Timing - Communication Activity")
         
         // Initialize components
         transport = BluetoothClassicTransport(this)
@@ -381,6 +397,17 @@ class CommunicationActivity : ComponentActivity() {
         lifecycleScope.launch {
             try {
                 languageLoading = true
+                
+                // Pipeline timing: Language load start
+                pipelineEventSink.emit(PipelineEvent(
+                    "language_load_start",
+                    android.os.SystemClock.elapsedRealtimeNanos(),
+                    details = mapOf("language" to currentLanguage)
+                ))
+                
+                // Memory before load
+                val memoryBefore = benchmarkStore?.currentTotalPssKb() ?: 0
+                
                 val spec = LanguageRegistry.byCode(currentLanguage)
                 
                 languageManager?.release()
@@ -389,11 +416,34 @@ class CommunicationActivity : ComponentActivity() {
                 val loaded = languageManager!!.loadLanguage(spec)
                 AppState.languageManager = languageManager
                 
+                // Memory after load
+                val memoryAfter = benchmarkStore?.currentTotalPssKb() ?: 0
+                
+                // Pipeline timing: Language load complete
+                pipelineEventSink.emit(PipelineEvent(
+                    "language_load_complete",
+                    android.os.SystemClock.elapsedRealtimeNanos(),
+                    details = mapOf(
+                        "language" to currentLanguage,
+                        "stt_loaded" to loaded.sttLoaded.toString(),
+                        "tts_loaded" to loaded.ttsLoaded.toString(),
+                        "memory_delta_kb" to (memoryAfter - memoryBefore).toString()
+                    )
+                ))
+                
+                benchmarkStore?.add("memory_after_language_load_kb", memoryAfter.toDouble(), "kb")
+                benchmarkStore?.add("memory_delta_language_load_kb", (memoryAfter - memoryBefore).toDouble(), "kb")
+                
                 languageLoaded = loaded.isLoaded
                 setupAudioPipeline()
                 
             } catch (e: Exception) {
                 languageLoaded = false
+                pipelineEventSink.emit(PipelineEvent(
+                    "language_load_error",
+                    android.os.SystemClock.elapsedRealtimeNanos(),
+                    details = mapOf("error" to (e.message ?: "unknown"))
+                ))
             } finally {
                 languageLoading = false
             }
@@ -472,6 +522,18 @@ class CommunicationActivity : ComponentActivity() {
     private fun handleIncomingMessage(payload: MessagePayload) {
         when (payload.type) {
             MessageType.SPEECH, MessageType.ALERT -> {
+                // Pipeline timing: Message received
+                pipelineEventSink.emit(PipelineEvent(
+                    "message_received",
+                    android.os.SystemClock.elapsedRealtimeNanos(),
+                    messageId = payload.messageId,
+                    details = mapOf(
+                        "type" to payload.type.name,
+                        "text_length" to (payload.text?.length ?: 0).toString(),
+                        "language" to (payload.langCode ?: "unknown")
+                    )
+                ))
+                
                 val kind = if (payload.type == MessageType.ALERT) InboundKind.ALERT else InboundKind.SPEECH
                 
                 // Check language mismatch
@@ -561,10 +623,44 @@ class CommunicationActivity : ComponentActivity() {
                     val payload = messageQueue.find { it.first == command.messageId }?.second
                     if (payload != null) {
                         lifecycleScope.launch {
+                            // Pipeline timing: TTS start
+                            pipelineEventSink.emit(PipelineEvent(
+                                "tts_synthesis_start",
+                                android.os.SystemClock.elapsedRealtimeNanos(),
+                                messageId = command.messageId,
+                                details = mapOf(
+                                    "text_length" to (payload.text?.length ?: 0).toString(),
+                                    "alert" to (command.kind == InboundKind.ALERT).toString()
+                                )
+                            ))
+                            
                             val samples = generateTtsForText(payload.text ?: "")
+                            
+                            // Pipeline timing: TTS complete
+                            pipelineEventSink.emit(PipelineEvent(
+                                "tts_synthesis_complete",
+                                android.os.SystemClock.elapsedRealtimeNanos(),
+                                messageId = command.messageId,
+                                details = mapOf("samples_count" to samples.size.toString())
+                            ))
+                            
                             val playKind = if (command.kind == InboundKind.ALERT) PlaybackKind.ALERT else PlaybackKind.NORMAL
                             
+                            // Pipeline timing: Audio playback start
+                            pipelineEventSink.emit(PipelineEvent(
+                                "audio_playback_start",
+                                android.os.SystemClock.elapsedRealtimeNanos(),
+                                messageId = command.messageId
+                            ))
+                            
                             playbackRouter?.play(samples, 22050, playKind)
+                            
+                            // Pipeline timing: Audio playback complete
+                            pipelineEventSink.emit(PipelineEvent(
+                                "audio_playback_complete",
+                                android.os.SystemClock.elapsedRealtimeNanos(),
+                                messageId = command.messageId
+                            ))
                             
                             val transition = conversationMachine.playbackFinished()
                             executeCommands(transition.commands)
@@ -597,9 +693,23 @@ class CommunicationActivity : ComponentActivity() {
     
     private fun sendSpeechMessage(text: String) {
         lifecycleScope.launch {
+            val messageId = UUID.randomUUID().toString()
+            
+            // Pipeline timing: Message send start
+            pipelineEventSink.emit(PipelineEvent(
+                "message_send_start",
+                android.os.SystemClock.elapsedRealtimeNanos(),
+                messageId = messageId,
+                details = mapOf(
+                    "type" to "SPEECH",
+                    "text_length" to text.length.toString(),
+                    "language" to currentLanguage
+                )
+            ))
+            
             val payload = MessagePayload(
                 type = MessageType.SPEECH,
-                messageId = UUID.randomUUID().toString(),
+                messageId = messageId,
                 seq = System.currentTimeMillis(),
                 senderId = getLocalSenderId(),
                 sentAtEpochMs = System.currentTimeMillis(),
@@ -607,7 +717,21 @@ class CommunicationActivity : ComponentActivity() {
                 langCode = currentLanguage
             )
             
+            // Verify no audio in payload (hard rule check)
+            val payloadJson = com.itantra.app.transport.PayloadSerializer.encode(payload)
+            if (payloadJson.toString(Charsets.UTF_8).contains("audio") || 
+                payloadJson.toString(Charsets.UTF_8).contains("samples")) {
+                throw IllegalStateException("HARD RULE VIOLATION: Audio data found in message payload")
+            }
+            
             transport?.send(payload)
+            
+            // Pipeline timing: Message sent to transport
+            pipelineEventSink.emit(PipelineEvent(
+                "message_sent_to_transport",
+                android.os.SystemClock.elapsedRealtimeNanos(),
+                messageId = messageId
+            ))
         }
     }
     
