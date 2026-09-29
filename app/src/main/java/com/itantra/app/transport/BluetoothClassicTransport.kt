@@ -1,6 +1,7 @@
 package com.itantra.app.transport
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothServerSocket
@@ -62,6 +63,7 @@ class BluetoothClassicTransport(private val context: Context) : Transport {
     @Volatile private var lastInboundMs = 0L
     @Volatile private var closedByUser = false
 
+    @SuppressLint("MissingPermission")
     override suspend fun connect() = withContext(Dispatchers.IO) {
         requireBluetoothPermission()
         val a = adapter ?: throw IllegalStateException("Bluetooth is not supported")
@@ -87,6 +89,7 @@ class BluetoothClassicTransport(private val context: Context) : Transport {
         }
     }
 
+    @SuppressLint("MissingPermission")
     override suspend fun connectTo(address: String) = withContext(Dispatchers.IO) {
         requireBluetoothPermission()
         val a = adapter ?: throw IllegalStateException("Bluetooth is not supported")
@@ -118,6 +121,7 @@ class BluetoothClassicTransport(private val context: Context) : Transport {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun installSocket(s: BluetoothSocket) {
         socket?.let { runCatching { it.close() } }
         socket = s

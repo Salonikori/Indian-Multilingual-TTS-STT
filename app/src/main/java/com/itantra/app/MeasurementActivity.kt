@@ -68,7 +68,7 @@ class MeasurementActivity : ComponentActivity() {
                     Column(Modifier.padding(16.dp)) {
                         Text("Running: $currentTest")
                         LinearProgressIndicator(
-                            progress = progress,
+                            progress = { progress },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

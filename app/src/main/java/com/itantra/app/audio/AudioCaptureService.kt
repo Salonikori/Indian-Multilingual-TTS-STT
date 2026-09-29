@@ -26,7 +26,7 @@ class AudioCaptureService : Service() {
             .setContentTitle("iTantra is listening")
             .setContentText("Speech is processed on this device.")
             .setOngoing(true).setCategory(NotificationCompat.CATEGORY_SERVICE).build()
-        if (Build.VERSION.SDK_INT >= 29)
+        if (Build.VERSION.SDK_INT >= 30)
             startForeground(ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
         else startForeground(ID, notification)
         if (capture == null) capture = AudioCapture().also { it.start() }

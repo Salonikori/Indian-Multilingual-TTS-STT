@@ -1,4 +1,7 @@
+@file:SuppressLint("MissingPermission")
 package com.itantra.app.transport
+
+import android.annotation.SuppressLint
 
 import android.bluetooth.BluetoothDevice
 import androidx.compose.foundation.layout.*

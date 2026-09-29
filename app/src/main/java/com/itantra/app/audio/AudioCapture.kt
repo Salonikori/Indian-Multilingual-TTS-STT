@@ -3,6 +3,7 @@ package com.itantra.app.audio
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import androidx.annotation.RequiresPermission
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -17,6 +18,7 @@ class AudioCapture(private val frameMillis: Int = 20) {
     private var recorder: AudioRecord? = null
     private var worker: Thread? = null
 
+    @RequiresPermission(android.Manifest.permission.RECORD_AUDIO)
     fun start() {
         check(running.compareAndSet(false, true)) { "Already capturing" }
         val rate = 16_000

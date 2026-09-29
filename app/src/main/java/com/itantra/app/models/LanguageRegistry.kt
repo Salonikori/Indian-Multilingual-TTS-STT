@@ -87,5 +87,8 @@ object LanguageRegistry {
         indicSttOnly("or", "Odia")
     )
 
+    // Alias for backward compatibility with test code
+    val ALL_LANGUAGES: List<LanguageSpec> get() = languages
+
     fun byCode(code: String): LanguageSpec = languages.first { it.code == code }
 }
