@@ -196,4 +196,4 @@
 **Date**: Ready for immediate deployment  
 **Version**: v0.2.0-smoke (Production Ready)  
 
-*iTantra is ready for ISRO Hackathon 2024 submission and live demonstration!*
+*iTantra is ready for ISRO Hackathon 2026 submission and live demonstration!*

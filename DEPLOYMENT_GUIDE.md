@@ -316,4 +316,4 @@ Solution: Normal during active communication, minimize screen brightness, close 
 
 **🚀 iTantra is ready for deployment and demonstration!**
 
-*Built for ISRO Hackathon 2024 | Problem Statement #26173 | Multilingual Voice Communication*
+*Built for ISRO Hackathon 2026 | Problem Statement #26173 | Multilingual Voice Communication*

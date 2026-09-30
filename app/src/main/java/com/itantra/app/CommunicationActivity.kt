@@ -42,7 +42,9 @@ class CommunicationActivity : ComponentActivity() {
     private var transport: BluetoothClassicTransport? = null
     private var playbackRouter: PlaybackRouter? = null
     private var audioCapture: AudioCapture? = null
-    private var liveSttController: Any? = null
+    private var liveSttController: LiveSttController? = null
+    private var vadEngine: VadEngine? = null
+    private var sttEngine: ManagerSttEngine? = null
     private var conversationMachine = ConversationStateMachine()
     private var benchmarkStore: BenchmarkStore? = null
     private val pipelineEventSink = PipelineEventSink { event ->
@@ -453,34 +455,28 @@ class CommunicationActivity : ComponentActivity() {
     private fun setupAudioPipeline() {
         val manager = languageManager ?: return
         
-        // Set up audio capture and STT
+        // Create VAD engine with graceful fallback
+        val vadModelPath = java.io.File(filesDir, "models/vad/silero_vad.onnx").absolutePath
+        vadEngine = VadEngine(modelPath = vadModelPath)
+        
+        // Create STT engine that bridges to LanguageManager
+        sttEngine = ManagerSttEngine(manager)
+        
+        // Create utterance segmenter for speech boundaries
+        val segmenter = UtteranceSegmenter()
+        
+        // Create the live STT controller that coordinates the pipeline
+        liveSttController = LiveSttController(
+            vad = vadEngine!!,
+            segmenter = segmenter,
+            stt = sttEngine!!,
+            scope = lifecycleScope
+        )
+        
+        // Set up audio capture
         audioCapture = AudioCapture()
         
-        // Create a simplified STT controller wrapper
-        liveSttController = object {
-            private var isListening = false
-            private var transcriptCallback: ((String) -> Unit)? = null
-            
-            fun startListening(onTranscript: (String) -> Unit) {
-                if (isListening) return
-                isListening = true
-                transcriptCallback = onTranscript
-                
-                lifecycleScope.launch {
-                    // Simulate STT - in real implementation, wire to audio capture
-                    // This would connect to AudioCapture -> VAD -> STT pipeline
-                }
-            }
-            
-            fun stopListening() {
-                isListening = false
-                transcriptCallback = null
-            }
-            
-            fun release() {
-                stopListening()
-            }
-        }
+        println("Audio pipeline initialized successfully")
     }
     
     private fun setMode(mode: ConversationMode) {
@@ -581,13 +577,10 @@ class CommunicationActivity : ComponentActivity() {
         commands.forEach { command ->
             when (command) {
                 SessionCommand.ArmMicrophone -> {
-                    // Start audio capture and STT
-                    lifecycleScope.launch {
-                        (liveSttController as? Any)?.let { controller ->
-                            // Simplified STT simulation
-                            // In real implementation: audioCapture -> VAD -> STT -> onTranscript
-                            kotlinx.coroutines.delay(2000)
-                            sendSpeechMessage("Test message from PTT")
+                    // Start real audio capture and STT for PTT
+                    startAudioCapture { transcript ->
+                        if (transcript.isNotBlank()) {
+                            sendSpeechMessage(transcript)
                             val transition = conversationMachine.outgoingFinished()
                             executeCommands(transition.commands)
                         }
@@ -595,28 +588,19 @@ class CommunicationActivity : ComponentActivity() {
                 }
                 
                 SessionCommand.StopMicrophoneAndFinalize -> {
-                    (liveSttController as? Any)?.let { 
-                        // Stop listening logic would go here
-                    }
+                    stopAudioCapture()
                     val transition = conversationMachine.utteranceFinalized()
                     executeCommands(transition.commands)
                 }
                 
                 SessionCommand.StartContinuousListening -> {
                     if (!microphoneGated) {
-                        lifecycleScope.launch {
-                            (liveSttController as? Any)?.let { controller ->
-                                // Start continuous listening for phone mode
-                                // Would connect to real STT pipeline
-                            }
-                        }
+                        startContinuousListening()
                     }
                 }
                 
                 SessionCommand.StopListening -> {
-                    (liveSttController as? Any)?.let { 
-                        // Stop listening logic
-                    }
+                    stopAudioCapture()
                 }
                 
                 is SessionCommand.PlayInbound -> {
@@ -670,9 +654,7 @@ class CommunicationActivity : ComponentActivity() {
                 
                 SessionCommand.GateMicrophone -> {
                     microphoneGated = true
-                    (liveSttController as? Any)?.let { 
-                        // Stop listening during TTS playback
-                    }
+                    stopAudioCapture()  // Stop listening during TTS playback
                 }
                 
                 SessionCommand.UngateMicrophone -> {
@@ -740,11 +722,89 @@ class CommunicationActivity : ComponentActivity() {
             ?.take(64) ?: "android"
     }
     
+    // ─── Audio Capture Implementation ────────────────────────────────────────
+    
+    private var currentTranscriptCallback: ((String) -> Unit)? = null
+    private var sttStateJob: Job? = null
+    
+    private fun startAudioCapture(onTranscript: (String) -> Unit) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            println("Microphone permission not granted")
+            return
+        }
+        
+        val controller = liveSttController ?: return
+        val capture = audioCapture ?: return
+        
+        try {
+            currentTranscriptCallback = onTranscript
+            capture.start()
+            controller.start(capture.frames)
+            
+            sttStateJob?.cancel()
+            sttStateJob = lifecycleScope.launch {
+                controller.state.collect { state ->
+                    state.latest?.let { utterance ->
+                        if (utterance.text.isNotBlank()) {
+                            currentTranscriptCallback?.invoke(utterance.text)
+                            currentTranscriptCallback = null
+                        }
+                    }
+                }
+            }
+            println("Audio capture started for PTT mode")
+        } catch (e: Exception) {
+            println("Failed to start audio capture: ${e.message}")
+        }
+    }
+    
+    private fun startContinuousListening() {
+        if (microphoneGated) return
+        
+        val controller = liveSttController ?: return
+        val capture = audioCapture ?: return
+        
+        try {
+            capture.start()
+            controller.start(capture.frames)
+            
+            sttStateJob?.cancel()
+            sttStateJob = lifecycleScope.launch {
+                controller.state.collect { state ->
+                    state.latest?.let { utterance ->
+                        if (utterance.text.isNotBlank()) {
+                            sendSpeechMessage(utterance.text)
+                            val transition = conversationMachine.outgoingFinished()
+                            executeCommands(transition.commands)
+                        }
+                    }
+                }
+            }
+            println("Continuous listening started")
+        } catch (e: Exception) {
+            println("Failed to start continuous listening: ${e.message}")
+        }
+    }
+    
+    private fun stopAudioCapture() {
+        try {
+            sttStateJob?.cancel()
+            sttStateJob = null
+            currentTranscriptCallback = null
+            liveSttController?.stop()
+            audioCapture?.stop()
+            println("Audio capture stopped")
+        } catch (e: Exception) {
+            println("Error stopping audio capture: ${e.message}")
+        }
+    }
+    
     override fun onDestroy() {
         super.onDestroy()
-        (liveSttController as? Any)?.let { 
-            // Release STT controller
-        }
+        stopAudioCapture()
+        vadEngine?.release()
+        liveSttController?.stop()
+        audioCapture?.stop()
         languageManager?.release()
         lifecycleScope.launch {
             transport?.disconnect()

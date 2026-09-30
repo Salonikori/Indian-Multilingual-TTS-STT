@@ -1,7 +1,7 @@
 @echo off
 echo ========================================
 echo  iTantra Quick Installer
-echo  ISRO Hackathon 2024 Submission
+echo  ISRO Hackathon 2026 Submission
 echo ========================================
 echo.
 

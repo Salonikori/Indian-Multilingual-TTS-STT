@@ -1,6 +1,6 @@
 # iTantra - Indian Multilingual TTS & STT Neural Transceiver 🚀
 
-![ISRO Hackathon](https://img.shields.io/badge/ISRO-Hackathon_2024-orange?style=for-the-badge&logo=rocket)
+![ISRO Hackathon](https://img.shields.io/badge/ISRO-Hackathon_2026-orange?style=for-the-badge&logo=rocket)
 ![Problem Statement](https://img.shields.io/badge/PS_ID-26173-blue?style=for-the-badge)
 ![Category](https://img.shields.io/badge/Category-Software-green?style=for-the-badge)
 
@@ -231,4 +231,4 @@ iTantra delivers exactly what ISRO requested:
 **Let's revolutionize voice communication for space and emergency applications! 🌟**
 
 ---
-*Built for ISRO Hackathon 2024 | Problem Statement #26173 | Category: Software*
+*Built for ISRO Hackathon 2026 | Problem Statement #26173 | Category: Software*
