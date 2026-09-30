@@ -351,17 +351,14 @@ class MeasurementActivity : ComponentActivity() {
             try {
                 val startTime = System.nanoTime()
                 
-                // Simulate full pipeline: STT + transport + TTS
+                // Simulate full pipeline: STT + TTS (without fake transport delay)
                 val audioSamples = generateTestAudio(1.5)
                 val sttResult = languageManager!!.decode(audioSamples, 16000)
                 
-                // Simulate transport delay (Bluetooth latency)
-                delay(Random.nextLong(50, 150)) // 50-150ms transport
-                
-                val (ttsAudio, _) = languageManager!!.synthesize("Test message")  // Use fixed text
+                val (ttsAudio, _) = languageManager!!.synthesize("Test message")
                 
                 val endToEndTime = (System.nanoTime() - startTime) / 1_000_000.0
-                benchmarkStore.add("end_to_end_latency_ms", endToEndTime, "ms")
+                benchmarkStore.add("end_to_end_stt_tts_latency_ms", endToEndTime, "ms")
                 
                 onProgress("End-to-end measurement ${i+1}/20", 0.7f + (i * 0.2f / 20f))
                 delay(1000)
@@ -390,23 +387,19 @@ class MeasurementActivity : ComponentActivity() {
     }
     
     private suspend fun runAccuracyMeasurements(onProgress: (String, Float) -> Unit) {
-        onProgress("Recording accuracy measurements...", 0.0f)
+        onProgress("Accuracy measurements require manual testing", 0.0f)
         
-        // Simulated WER measurements (would require actual recorded sentences)
-        benchmarkStore.add("wer_hindi_percent", 15.2, "percent") // Typical for Hindi STT
-        benchmarkStore.add("wer_english_percent", 8.7, "percent") // Typical for English STT
-        benchmarkStore.add("wer_sample_count_hindi", 50.0, "count")
-        benchmarkStore.add("wer_sample_count_english", 50.0, "count")
+        // WER measurements require actual recorded audio corpus with reference transcripts
+        // These cannot be automatically measured without proper test data
+        benchmarkStore.add("wer_measurement_status", 0.0, "requires_manual_corpus")
         
-        onProgress("Recording TTS listening panel results...", 0.5f)
+        onProgress("TTS listening scores require human evaluation panel", 0.5f)
         
-        // Simulated TTS listening panel (would require actual human evaluation)
-        benchmarkStore.add("tts_listening_score_hindi", 4.2, "score_out_of_5")
-        benchmarkStore.add("tts_listening_score_english", 4.5, "score_out_of_5")
-        benchmarkStore.add("tts_listening_panel_size", 7.0, "people")
-        benchmarkStore.add("tts_listening_samples_per_language", 20.0, "count")
+        // TTS listening scores require actual human evaluation panel
+        // These cannot be automatically measured without human listeners
+        benchmarkStore.add("tts_listening_measurement_status", 0.0, "requires_human_panel")
         
-        onProgress("Accuracy measurements complete", 1.0f)
+        onProgress("Accuracy measurements noted as requiring manual testing", 1.0f)
     }
     
     private fun generateTestAudio(durationSeconds: Double): FloatArray {

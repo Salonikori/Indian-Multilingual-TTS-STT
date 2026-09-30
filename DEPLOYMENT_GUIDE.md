@@ -5,8 +5,8 @@
 ## 📦 **Package Contents**
 
 ### **APK Files (Ready to Install)**
-- `app-debug.apk` (40.06 MB) - Development version with debug symbols
-- `app-release-unsigned.apk` (36.75 MB) - Production optimized version
+- `app-debug.apk` - Development version with debug symbols
+- `app-release-unsigned.apk` - Production optimized version
 
 ### **Source Code** 
 - Complete Android project with all source files
@@ -192,18 +192,14 @@ adb install app-debug.apk
 ## 📊 **Performance Specifications**
 
 ### **APK Sizes:**
-- **Debug**: 40.06 MB (includes debugging symbols)
-- **Release**: 36.75 MB (production optimized)
+- **Debug**: Includes debugging symbols
+- **Release**: Production optimized
 
 ### **Memory Usage:**
-- **Initial Launch**: ~150 MB RAM
-- **With Language Loaded**: ~312 MB RAM  
-- **Peak Usage**: ~400 MB RAM (during communication)
+- **Usage**: Varies by device and loaded models
 
 ### **Storage Requirements:**
-- **App Installation**: ~40 MB
-- **Runtime Cache**: ~20 MB  
-- **Total**: ~60 MB per phone
+- **Requirements**: Depends on selected languages and models
 
 ### **Battery Impact:**
 - **Idle**: Minimal battery usage

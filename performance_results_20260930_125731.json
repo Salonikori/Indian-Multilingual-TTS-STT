@@ -1,0 +1,32 @@
+{
+  "device_info": {
+    "model": "23076PC4BI",
+    "android_version": "15",
+    "api_level": "35",
+    "architecture": "arm64-v8a",
+    "ram_mb": 5417,
+    "timestamp": "2026-09-30T12:55:56.657354"
+  },
+  "app_info": {
+    "apk_size": "Unknown",
+    "app_directory_size": "Unknown",
+    "models_size": "Unknown"
+  },
+  "alert_system": {
+    "ringer_mode": "2",
+    "media_volume": "5",
+    "dnd_status": "0",
+    "test_timestamp": "2026-09-30T12:55:57.571799"
+  },
+  "background_service": {
+    "audio_service_running": false,
+    "battery_optimized": true,
+    "test_timestamp": "2026-09-30T12:55:57.741940"
+  },
+  "startup_performance": {
+    "error": "No successful startup measurements"
+  },
+  "memory_usage": {
+    "error": "No memory samples collected"
+  }
+}

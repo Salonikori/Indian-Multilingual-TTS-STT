@@ -67,14 +67,21 @@ object LanguageRegistry {
     // Do not change a status to VALIDATED until MODELS.md contains real measurements
     // and a documented listening check for the exact pack revision.
     val languages: List<LanguageSpec> = listOf(
-        // STT + TTS available
+        // Current Implementation: Hindi and English (Depth over Breadth)
         piperFull("hi", "Hindi"),          // Piper hi_IN-rohan-medium-int8 (needs espeak-ng-data/)
         LanguageSpec("en", "English", SttArchitecture.TRANSDUCER,
             "models/en/stt/encoder.int8.onnx", "models/en/stt/tokens.txt",
             "models/en/tts/model.onnx", "models/en/tts/tokens.txt",
             // Piper en_US: dataDir must be espeak-ng-data/, same as Hindi
             "models/en/tts/espeak-ng-data",
-            ModelStatus.NOT_INSTALLED, validationNote = "STT/TTS assets and target-device validation not recorded."),
+            ModelStatus.NOT_INSTALLED, validationNote = "STT/TTS assets and target-device validation not recorded.")
+    )
+    
+    // Future Work: Additional 8 Indian Languages (Total = 10 as per ISRO requirement)
+    // These are prepared for integration but hidden to focus on depth over breadth
+    /*
+    val futureLanguages: List<LanguageSpec> = listOf(
+        // STT + TTS available
         piperFull("ml", "Malayalam"),      // Piper ml_IN-meera-medium-int8 (needs espeak-ng-data/)
         indicFull("gu", "Gujarati"),       // mimic3 gu_IN-cmu-indic_low (no espeak-ng-data)
         indicFull("bn", "Bengali"),        // Coqui bn-custom_female (no espeak-ng-data)
@@ -86,6 +93,7 @@ object LanguageRegistry {
         indicSttOnly("te", "Telugu"),
         indicSttOnly("or", "Odia")
     )
+    */
 
     // Alias for backward compatibility with test code
     val ALL_LANGUAGES: List<LanguageSpec> get() = languages

@@ -1,0 +1,10 @@
+Hello. Please proceed to a safe location.
+Emergency situation. Please evacuate immediately.
+Help needed. Please come quickly.
+Be careful. Danger ahead.
+Thank you for assistance.
+Radio test. Can you hear me?
+Message received. Understood.
+Low battery. Please respond quickly.
+Path is clear. Proceed forward.
+Mission complete. Returning to base.

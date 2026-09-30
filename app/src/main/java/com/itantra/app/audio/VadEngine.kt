@@ -32,41 +32,19 @@ class VadEngine(modelPath: String, sampleRate: Int = 16_000, threshold: Float = 
             )
         )
     } catch (e: Exception) {
-        println("VAD model loading failed: ${e.message}, using mock VAD")
-        null
+        throw RuntimeException("VAD model loading failed: ${e.message}. Ensure VAD model file exists at: $modelPath", e)
     }
-    
-    private var mockFrameCount = 0
 
     fun isSpeech(samples: FloatArray): Boolean {
-        return if (detector != null) {
-            detector.acceptWaveform(samples)
-            val speechDetected = detector.isSpeechDetected()
-            if (speechDetected) {
-                android.util.Log.d("iTantra-VAD", "🗣️ SPEECH detected (${samples.size} samples)")
-            }
-            speechDetected
-        } else {
-            // Mock VAD: simulate speech detection based on audio energy
-            val energy = samples.map { it * it }.average()
-            val threshold = 0.01f
-            mockFrameCount++
-            // Simulate speech detection every 10-50 frames if energy is above threshold
-            val speechDetected = energy > threshold && (mockFrameCount % 30 < 20)
-            
-            if (mockFrameCount % 100 == 0) { // Log every 100 frames
-                android.util.Log.d("iTantra-VAD", "Mock VAD: energy=${String.format("%.6f", energy)}, threshold=$threshold, speech=$speechDetected, frame=$mockFrameCount")
-            }
-            
-            if (speechDetected) {
-                android.util.Log.d("iTantra-VAD", "🗣️ Mock SPEECH detected (energy: ${String.format("%.6f", energy)})")
-            }
-            
-            speechDetected
+        detector.acceptWaveform(samples)
+        val speechDetected = detector.isSpeechDetected()
+        if (speechDetected) {
+            android.util.Log.d("iTantra-VAD", "🗣️ SPEECH detected (${samples.size} samples)")
         }
+        return speechDetected
     }
 
     fun release() { 
-        detector?.release() 
+        detector.release() 
     }
 }
