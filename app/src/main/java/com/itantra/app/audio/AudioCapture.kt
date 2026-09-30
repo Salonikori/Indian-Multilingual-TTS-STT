@@ -22,6 +22,8 @@ class AudioCapture(private val frameMillis: Int = 20) {
     fun start() {
         android.util.Log.d("iTantra-AudioCapture", "=== AUDIO CAPTURE START ===")
         check(running.compareAndSet(false, true)) { "Already capturing" }
+        
+        // Drain leftover frames from the previous session before starting
         while (channel.tryReceive().isSuccess) { }
 
         val rate = 16_000

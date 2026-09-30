@@ -1,41 +1,97 @@
+
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+val keystoreProperties = Properties().apply {
+    val propertiesFile = rootProject.file("keystore.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     namespace = "com.itantra.app"
     compileSdk = 36
+
     defaultConfig {
         applicationId = "com.itantra.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "0.2.0-smoke"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk { abiFilters += listOf("arm64-v8a") }
-    }
-    buildFeatures { compose = true }
-    buildTypes {
-        release {
-            isMinifyEnabled = false
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+
+        testInstrumentationRunner =
+            "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a")
         }
     }
+
+    signingConfigs {
+        create("release") {
+            val storePath =
+                keystoreProperties.getProperty("storeFile")
+
+            if (!storePath.isNullOrBlank()) {
+                storeFile = file(storePath)
+            }
+
+            storePassword =
+                keystoreProperties.getProperty("storePassword")
+
+            keyAlias =
+                keystoreProperties.getProperty("keyAlias")
+
+            keyPassword =
+                keystoreProperties.getProperty("keyPassword")
+        }
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
     packaging {
-        jniLibs { useLegacyPackaging = false }
-        // Keep license/notice files in the APK for open-source attribution.
-        resources.excludes += setOf("META-INF/DEPENDENCIES")
+        jniLibs {
+            useLegacyPackaging = false
+        }
+
+        resources {
+            excludes += setOf("META-INF/DEPENDENCIES")
+        }
     }
 }
-// sherpa-onnx is published to JitPack from the official k2-fsa/sherpa-onnx repository.
-// The JitPack repository is declared in settings.gradle.kts.
-// The AAR bundles arm64-v8a native .so files, so no separate jniLibs/ copy is needed.
+
+// sherpa-onnx is published through JitPack.
+// Its AAR includes the arm64-v8a native libraries.
+
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.06.01"))
     implementation("androidx.activity:activity-compose:1.10.1")
@@ -45,9 +101,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("androidx.core:core-ktx:1.16.0")
+
     implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v1.13.5")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

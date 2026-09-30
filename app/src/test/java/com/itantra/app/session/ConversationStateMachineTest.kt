@@ -59,4 +59,27 @@ class ConversationStateMachineTest {
         assertTrue(transition.commands.contains(SessionCommand.PlayInbound("peer-1", InboundKind.SPEECH)))
         assertTrue(transition.state.queuedInbound.isEmpty())
     }
+
+    @Test fun emptyPttPressReturnsToIdleAndPlaysQueuedMessages() {
+        val machine = ConversationStateMachine()
+        
+        // Start with an incoming message that gets played immediately
+        machine.incoming("incoming-1", InboundKind.SPEECH)
+        machine.playbackFinished() // Now idle with empty queue
+        
+        // PTT press and release without saying anything (empty press)
+        machine.pressPtt()
+        machine.releasePtt()
+        machine.utteranceFinalized()
+        val finished = machine.outgoingFinished()
+        
+        // Should return to IDLE since there's nothing queued
+        assertEquals(SessionPhase.IDLE, finished.state.phase)
+        
+        // Now queue a message and test that an empty PTT doesn't block it
+        machine.incoming("incoming-2", InboundKind.SPEECH)
+        
+        // Should immediately play since we're idle
+        assertEquals(SessionPhase.PLAYING_TTS, machine.state.phase)
+    }
 }
