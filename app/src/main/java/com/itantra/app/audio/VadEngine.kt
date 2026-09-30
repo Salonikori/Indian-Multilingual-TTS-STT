@@ -1,20 +1,31 @@
 package com.itantra.app.audio
 
 import com.k2fsa.sherpa.onnx.SileroVadModelConfig
-import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.k2fsa.sherpa.onnx.Vad
+import com.k2fsa.sherpa.onnx.VadModelConfig
 
 /**
- * sherpa-onnx Silero VAD adapter with graceful degradation for development.
+ * sherpa-onnx Silero VAD adapter.
  *
- * API notes (v1.13.5):
- *  - The class is [Vad], not VoiceActivityDetector.
- *  - The silero config field in [VadModelConfig] is `sileroVadModelConfig`, not `sileroVad`.
- *  - Speech detection: call [Vad.acceptWaveform], then check [Vad.isSpeechDetected].
- *  - Completed segments are retrieved via [Vad.front] / [Vad.pop] / [Vad.empty].
+ * API notes (v1.13.5): class is [Vad]; config field is `sileroVadModelConfig`;
+ * per-frame "speech now" is [Vad.isSpeechDetected]; finished segments are read with
+ * [Vad.empty] / [Vad.pop].
+ *
+ * Changes vs the previous version:
+ *  - finished segments are drained every call (they were never popped, so the internal queue grew forever);
+ *  - reset() gives a clean detector at the start of each listening session by rebuilding it
+ *    (uses only APIs already used in this file);
+ *  - release() is safe to call twice.
  */
-class VadEngine(modelPath: String, sampleRate: Int = 16_000, threshold: Float = 0.5f) {
-    private val detector = try {
+class VadEngine(
+    private val modelPath: String,
+    private val sampleRate: Int = 16_000,
+    private val threshold: Float = 0.5f
+) {
+    private var detector: Vad = create()
+    private var released = false
+
+    private fun create(): Vad = try {
         Vad(
             config = VadModelConfig(
                 sileroVadModelConfig = SileroVadModelConfig(
@@ -32,19 +43,32 @@ class VadEngine(modelPath: String, sampleRate: Int = 16_000, threshold: Float = 
             )
         )
     } catch (e: Exception) {
-        throw RuntimeException("VAD model loading failed: ${e.message}. Ensure VAD model file exists at: $modelPath", e)
+        throw RuntimeException(
+            "VAD model loading failed: ${e.message}. Ensure the VAD model exists at: $modelPath", e
+        )
     }
 
+    @Synchronized
     fun isSpeech(samples: FloatArray): Boolean {
+        check(!released) { "VadEngine already released" }
         detector.acceptWaveform(samples)
-        val speechDetected = detector.isSpeechDetected()
-        if (speechDetected) {
-            android.util.Log.d("iTantra-VAD", "🗣️ SPEECH detected (${samples.size} samples)")
-        }
-        return speechDetected
+        val speech = detector.isSpeechDetected()
+        while (!detector.empty()) detector.pop()   // we only use the per-frame flag
+        return speech
     }
 
-    fun release() { 
-        detector.release() 
+    /** Fresh detector state (call when a new listening session starts). */
+    @Synchronized
+    fun reset() {
+        check(!released) { "VadEngine already released" }
+        detector.release()
+        detector = create()
+    }
+
+    @Synchronized
+    fun release() {
+        if (released) return
+        released = true
+        detector.release()
     }
 }

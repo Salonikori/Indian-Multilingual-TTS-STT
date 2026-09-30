@@ -22,67 +22,46 @@ class AudioCapture(private val frameMillis: Int = 20) {
     fun start() {
         android.util.Log.d("iTantra-AudioCapture", "=== AUDIO CAPTURE START ===")
         check(running.compareAndSet(false, true)) { "Already capturing" }
-        
+        while (channel.tryReceive().isSuccess) { }
+
         val rate = 16_000
-        android.util.Log.d("iTantra-AudioCapture", "Sample rate: ${rate}Hz")
-        
         val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
-        android.util.Log.d("iTantra-AudioCapture", "Min buffer size: $min")
-        check(min > 0) { 
+        check(min > 0) {
             android.util.Log.e("iTantra-AudioCapture", "AudioRecord buffer query failed: $min")
-            running.set(false); "AudioRecord buffer query failed: $min" 
+            running.set(false); "AudioRecord buffer query failed: $min"
         }
-        
+
         val r = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, rate,
             AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, rate))
-        android.util.Log.d("iTantra-AudioCapture", "AudioRecord created, state: ${r.state}")
-        
-        check(r.state == AudioRecord.STATE_INITIALIZED) { 
-            android.util.Log.e("iTantra-AudioCapture", "AudioRecord init failed, state: ${r.state}")
-            r.release(); running.set(false); "AudioRecord init failed" 
+        check(r.state == AudioRecord.STATE_INITIALIZED) {
+            r.release(); running.set(false); "AudioRecord init failed"
         }
-        
+
         recorder = r
-        android.util.Log.d("iTantra-AudioCapture", "Starting recording...")
         r.startRecording()
-        android.util.Log.d("iTantra-AudioCapture", "Recording state: ${r.recordingState}")
-        
+
         worker = Thread({
             val buffer = ShortArray(rate * frameMillis / 1000)
-            android.util.Log.d("iTantra-AudioCapture", "Audio worker thread started, buffer size: ${buffer.size}")
             var frameCount = 0
             try {
                 while (running.get()) {
                     val n = r.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
                     if (n > 0) {
                         frameCount++
-                        
-                        // Calculate audio level for monitoring
                         val level = buffer.take(n).map { kotlin.math.abs(it.toInt()) }.average()
-                        
-                        if (frameCount % 50 == 0) { // Log every 50 frames (~1 second)
+                        if (frameCount % 50 == 0) {
                             android.util.Log.d("iTantra-AudioCapture", "Frame $frameCount: read $n samples, avg level: ${String.format("%.1f", level)}")
                         }
-                        
                         val frame = AudioFrame(buffer.copyOf(n), rate, System.nanoTime())
-                        val sent = channel.trySend(frame)
-                        if (!sent.isSuccess) {
-                            android.util.Log.w("iTantra-AudioCapture", "Failed to send audio frame: ${sent.exceptionOrNull()}")
-                        }
-                    } else {
-                        android.util.Log.w("iTantra-AudioCapture", "Audio read returned: $n")
+                        channel.trySend(frame)
                     }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("iTantra-AudioCapture", "Audio capture error: ${e.message}", e)
-            } finally { 
-                android.util.Log.d("iTantra-AudioCapture", "Stopping recording...")
+            } finally {
                 runCatching { r.stop() }
-                android.util.Log.d("iTantra-AudioCapture", "Audio worker thread finished")
             }
         }, "iTantra-AudioRecord").apply { start() }
-        
-        android.util.Log.d("iTantra-AudioCapture", "✓ AudioCapture initialization complete")
     }
 
     fun stop() {

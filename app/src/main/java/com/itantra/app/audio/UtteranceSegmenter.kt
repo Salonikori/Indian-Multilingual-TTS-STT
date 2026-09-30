@@ -17,8 +17,11 @@ class UtteranceSegmenter(val config: Config = Config()) {
             require(maxUtteranceMillis >= minUtteranceMillis && minUtteranceMillis > 0)
         }
     }
-    enum class EndReason { TRAILING_SILENCE, MAX_LENGTH }
+
+    enum class EndReason { TRAILING_SILENCE, MAX_LENGTH, FLUSH }
+
     data class Segment(val samples: FloatArray, val audioLengthMillis: Long, val endedBy: EndReason)
+
     private val preRoll = ArrayDeque<FloatArray>()
     private val frames = ArrayList<FloatArray>()
     private var active = false
@@ -33,6 +36,7 @@ class UtteranceSegmenter(val config: Config = Config()) {
                 while (preRoll.size > keep) preRoll.removeFirst()
             }
             if (!isSpeech) return null
+
             active = true
             speechFrames = 0
             preRoll.forEach { frames.add(it.copyOf()) }
@@ -42,13 +46,23 @@ class UtteranceSegmenter(val config: Config = Config()) {
         } else frames.add(samples.copyOf())
 
         if (isSpeech) { silenceFrames = 0; speechFrames++ } else silenceFrames++
+
         val count = frames.sumOf { it.size }
         val maxSamples = config.sampleRate * config.maxUtteranceMillis / 1000
         if (count >= maxSamples) return finish(EndReason.MAX_LENGTH)
+
         if (silenceFrames * config.frameMillis >= config.trailingSilenceMillis)
             return finish(EndReason.TRAILING_SILENCE)
+
         return null
     }
+
+    /**
+     * Ends the utterance in progress right now (used when push-to-talk is released, so the
+     * last words are not lost waiting for trailing silence). Returns null if nothing was being
+     * captured or if it contained less than minUtteranceMillis of speech.
+     */
+    @Synchronized fun flush(): Segment? = if (active) finish(EndReason.FLUSH) else null
 
     @Synchronized fun reset() {
         preRoll.clear(); frames.clear(); active = false; silenceFrames = 0; speechFrames = 0
