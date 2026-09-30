@@ -5,10 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LanguageRegistryTest {
-    @Test fun registryListsTenRequestedLanguagesAndNoUnmeasuredValidatedPacks() {
-        assertEquals(setOf("hi", "en", "ta", "bn", "mr", "gu", "kn", "te", "ml", "or"),
+    @Test fun registryListsOnlyHindiAndEnglishForDepthOverBreadth() {
+        assertEquals(setOf("hi", "en"),
             LanguageRegistry.languages.map { it.code }.toSet())
-        assertEquals(10, LanguageRegistry.languages.size)
-        assertTrue(LanguageRegistry.languages.none { it.status == ModelStatus.VALIDATED })
+        assertEquals(2, LanguageRegistry.languages.size)
+        assertTrue("All languages should have NOT_INSTALLED status initially", 
+            LanguageRegistry.languages.all { it.status == ModelStatus.NOT_INSTALLED })
     }
 }
