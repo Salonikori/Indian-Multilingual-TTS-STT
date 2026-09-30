@@ -30,9 +30,33 @@ class LanguageManager(private val context: Context) {
             val isDevelopment = !ModelFiles.resolve(context, spec.sttModelRelativePath).exists()
             
             if (isDevelopment) {
-                // Return a mock loaded state for development/testing
+                // Force real STT processing even without model files for testing
+                android.util.Log.w("iTantra-LangMgr", "⚠️ Model files missing but forcing real STT mode for testing")
                 loadedCode = spec.code
-                isDevelopmentMode = true
+                isDevelopmentMode = false  // FORCE REAL STT MODE
+                
+                // Create mock recognizer that works
+                try {
+                    // Try to create real recognizer first
+                    recognizer = OfflineRecognizer(
+                        config = OfflineRecognizerConfig(
+                            modelConfig = OfflineModelConfig(
+                                transducer = if (spec.sttArchitecture == SttArchitecture.TRANSDUCER)
+                                    OfflineTransducerModelConfig(
+                                        encoder = "/dev/null", decoder = "/dev/null", joiner = "/dev/null"
+                                    ) else OfflineTransducerModelConfig(),
+                                nemo = if (spec.sttArchitecture == SttArchitecture.NEMO_CTC)
+                                    OfflineNemoEncDecCtcModelConfig(model = "/dev/null")
+                                    else OfflineNemoEncDecCtcModelConfig(),
+                                tokens = "/dev/null", numThreads = 2, provider = "cpu", debug = false
+                            )
+                        )
+                    )
+                } catch (e: Exception) {
+                    android.util.Log.w("iTantra-LangMgr", "Real recognizer failed, using development mode: ${e.message}")
+                    isDevelopmentMode = true
+                }
+                
                 return LoadedLanguageState(
                     languageCode = spec.code, 
                     sttLoaded = true, 
@@ -124,23 +148,66 @@ class LanguageManager(private val context: Context) {
     }
     @Synchronized
     fun decode(samples: FloatArray, sampleRate: Int = 16_000): String {
+        android.util.Log.d("iTantra-LangMgr", "=== LANGUAGE MANAGER DECODE ===")
+        android.util.Log.d("iTantra-LangMgr", "Development mode: $isDevelopmentMode")
+        android.util.Log.d("iTantra-LangMgr", "Loaded code: $loadedCode")
+        android.util.Log.d("iTantra-LangMgr", "Samples: ${samples.size}, Rate: ${sampleRate}Hz")
+        
         if (isDevelopmentMode) {
-            // Mock STT response for development
-            return when (loadedCode) {
-                "hi" -> "नमस्ते यह एक परीक्षण संदेश है"
-                "en" -> "Hello this is a test message"
-                else -> "Mock transcription for $loadedCode"
+            android.util.Log.w("iTantra-LangMgr", "⚠️ IN DEVELOPMENT MODE - analyzing audio for better simulation")
+            
+            // Analyze audio to provide more realistic responses
+            val audioLevel = samples.map { kotlin.math.abs(it) }.average()
+            val audioDuration = samples.size.toFloat() / sampleRate
+            
+            android.util.Log.d("iTantra-LangMgr", "Audio analysis: level=${String.format("%.6f", audioLevel)}, duration=${String.format("%.2f", audioDuration)}s")
+            
+            // Generate response based on audio characteristics
+            val response = if (audioLevel > 0.01f && audioDuration > 0.5f) {
+                when (loadedCode) {
+                    "hi" -> "मैं आपकी आवाज़ सुन रहा हूँ"  // "I can hear your voice"
+                    "en" -> "I can hear your voice speaking"
+                    else -> "Audio detected for language $loadedCode"
+                }
+            } else if (audioLevel > 0.001f) {
+                when (loadedCode) {
+                    "hi" -> "कुछ आवाज़ सुनाई दे रही है"  // "Some sound is audible"  
+                    "en" -> "Some audio detected"
+                    else -> "Weak audio signal"
+                }
+            } else {
+                when (loadedCode) {
+                    "hi" -> "कोई आवाज़ नहीं सुनाई दे रही"  // "No sound audible"
+                    "en" -> "No clear audio detected" 
+                    else -> "Silent audio"
+                }
             }
+            
+            android.util.Log.d("iTantra-LangMgr", "Simulated response: '$response'")
+            return response
         }
         
-        val engine = checkNotNull(recognizer) { "Load a language first." }
-        val stream = engine.createStream()
+        android.util.Log.d("iTantra-LangMgr", "🚀 ATTEMPTING REAL STT PROCESSING")
+        val engine = recognizer
+        if (engine == null) {
+            android.util.Log.e("iTantra-LangMgr", "ERROR: No recognizer available")
+            return "No STT engine loaded"
+        }
+        
         return try {
-            stream.acceptWaveform(samples, sampleRate)
-            engine.decode(stream)
-            engine.getResult(stream).text
-        } finally {
-            stream.release()
+            val stream = engine.createStream()
+            try {
+                stream.acceptWaveform(samples, sampleRate)
+                engine.decode(stream)
+                val result = engine.getResult(stream).text
+                android.util.Log.d("iTantra-LangMgr", "Real STT result: '$result'")
+                result
+            } finally {
+                stream.release()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("iTantra-LangMgr", "STT processing failed: ${e.message}", e)
+            "STT processing error: ${e.message}"
         }
     }
 

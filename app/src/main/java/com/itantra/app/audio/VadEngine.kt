@@ -41,14 +41,28 @@ class VadEngine(modelPath: String, sampleRate: Int = 16_000, threshold: Float = 
     fun isSpeech(samples: FloatArray): Boolean {
         return if (detector != null) {
             detector.acceptWaveform(samples)
-            detector.isSpeechDetected()
+            val speechDetected = detector.isSpeechDetected()
+            if (speechDetected) {
+                android.util.Log.d("iTantra-VAD", "🗣️ SPEECH detected (${samples.size} samples)")
+            }
+            speechDetected
         } else {
             // Mock VAD: simulate speech detection based on audio energy
             val energy = samples.map { it * it }.average()
             val threshold = 0.01f
             mockFrameCount++
             // Simulate speech detection every 10-50 frames if energy is above threshold
-            energy > threshold && (mockFrameCount % 30 < 20)
+            val speechDetected = energy > threshold && (mockFrameCount % 30 < 20)
+            
+            if (mockFrameCount % 100 == 0) { // Log every 100 frames
+                android.util.Log.d("iTantra-VAD", "Mock VAD: energy=${String.format("%.6f", energy)}, threshold=$threshold, speech=$speechDetected, frame=$mockFrameCount")
+            }
+            
+            if (speechDetected) {
+                android.util.Log.d("iTantra-VAD", "🗣️ Mock SPEECH detected (energy: ${String.format("%.6f", energy)})")
+            }
+            
+            speechDetected
         }
     }
 

@@ -577,12 +577,17 @@ class CommunicationActivity : ComponentActivity() {
         commands.forEach { command ->
             when (command) {
                 SessionCommand.ArmMicrophone -> {
+                    android.util.Log.d("iTantra-PTT", "🎤 PTT PRESSED - Starting audio capture")
                     // Start real audio capture and STT for PTT
                     startAudioCapture { transcript ->
+                        android.util.Log.d("iTantra-PTT", "📝 TRANSCRIPT RECEIVED: '$transcript'")
                         if (transcript.isNotBlank()) {
+                            android.util.Log.d("iTantra-PTT", "✅ Sending message: '$transcript'")
                             sendSpeechMessage(transcript)
                             val transition = conversationMachine.outgoingFinished()
                             executeCommands(transition.commands)
+                        } else {
+                            android.util.Log.w("iTantra-PTT", "⚠️ Empty transcript, not sending message")
                         }
                     }
                 }
@@ -728,32 +733,67 @@ class CommunicationActivity : ComponentActivity() {
     private var sttStateJob: Job? = null
     
     private fun startAudioCapture(onTranscript: (String) -> Unit) {
+        android.util.Log.d("iTantra", "=== PTT AUDIO CAPTURE START ===")
+        
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.e("iTantra", "ERROR: Microphone permission not granted")
             println("Microphone permission not granted")
             return
         }
+        android.util.Log.d("iTantra", "✓ Microphone permission granted")
         
-        val controller = liveSttController ?: return
-        val capture = audioCapture ?: return
+        val controller = liveSttController ?: run {
+            android.util.Log.e("iTantra", "ERROR: liveSttController is null")
+            return
+        }
+        val capture = audioCapture ?: run {
+            android.util.Log.e("iTantra", "ERROR: audioCapture is null") 
+            return
+        }
+        
+        android.util.Log.d("iTantra", "✓ Controller and capture instances available")
+        android.util.Log.d("iTantra", "Language loaded: $languageLoaded")
+        android.util.Log.d("iTantra", "Language manager null: ${languageManager == null}")
         
         try {
             currentTranscriptCallback = onTranscript
+            
+            android.util.Log.d("iTantra", "Starting audio capture...")
             capture.start()
+            android.util.Log.d("iTantra", "✓ AudioCapture.start() completed")
+            
+            android.util.Log.d("iTantra", "Starting STT controller with audio frames...")
             controller.start(capture.frames)
+            android.util.Log.d("iTantra", "✓ LiveSttController.start() completed")
             
             sttStateJob?.cancel()
             sttStateJob = lifecycleScope.launch {
+                android.util.Log.d("iTantra", "Starting STT state monitoring coroutine...")
                 controller.state.collect { state ->
+                    android.util.Log.d("iTantra", "STT State: phase=${state.phase}, message='${state.message}'")
+                    android.util.Log.d("iTantra", "CPU idle: ${state.idleCpuPercent}%, latest utterance: ${state.latest != null}")
+                    
                     state.latest?.let { utterance ->
+                        android.util.Log.d("iTantra", "=== TRANSCRIPT RECEIVED ===")
+                        android.util.Log.d("iTantra", "Text: '${utterance.text}'")
+                        android.util.Log.d("iTantra", "Audio length: ${utterance.audioLengthMillis}ms")
+                        android.util.Log.d("iTantra", "Decode time: ${utterance.decodeMillis}ms")
+                        android.util.Log.d("iTantra", "RTF: ${utterance.rtf}")
+                        
                         if (utterance.text.isNotBlank()) {
+                            android.util.Log.d("iTantra", "Invoking transcript callback with: '${utterance.text}'")
                             currentTranscriptCallback?.invoke(utterance.text)
                             currentTranscriptCallback = null
+                            android.util.Log.d("iTantra", "✓ Transcript callback completed")
+                        } else {
+                            android.util.Log.w("iTantra", "Empty transcript received, ignoring")
                         }
                     }
                 }
             }
-            println("Audio capture started for PTT mode")
+            android.util.Log.d("iTantra", "Audio capture started for PTT mode")
         } catch (e: Exception) {
+            android.util.Log.e("iTantra", "FAILED to start audio capture: ${e.message}", e)
             println("Failed to start audio capture: ${e.message}")
         }
     }
