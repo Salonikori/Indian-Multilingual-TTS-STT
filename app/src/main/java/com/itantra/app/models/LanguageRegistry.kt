@@ -75,8 +75,8 @@ object LanguageRegistry {
             // Piper en_US: dataDir must be espeak-ng-data/, same as Hindi  
             "models/en/tts/espeak-ng-data",
             ModelStatus.NOT_INSTALLED,
-            measuredBundleBytes = 117_000_000, // ~117 MB for Whisper tiny.en int8
-            validationNote = "Replaced with Whisper tiny.en int8 model for better accuracy (was 96.8% WER with streaming model).")
+            measuredBundleBytes = 118_000_000, // ~118 MB for Whisper tiny.en int8 (12MB encoder + 105MB decoder + tokens)
+            validationNote = "Whisper tiny.en int8 - expected significant WER improvement over previous streaming model mismatch (was 96.8% WER).")
     )
     
     // Alternative larger model option (commented out but documented)
@@ -86,7 +86,7 @@ object LanguageRegistry {
         "models/en/tts/model.onnx", "models/en/tts/tokens.txt",
         "models/en/tts/espeak-ng-data",
         ModelStatus.NOT_INSTALLED,
-        measuredBundleBytes = 153_000_000, // ~153 MB for Whisper base.en int8 (better accuracy)
+        measuredBundleBytes = 200_000_000, // ~200 MB for Whisper base.en int8 (better accuracy but larger)
         validationNote = "Whisper base.en int8 alternative - larger but potentially more accurate than tiny.en")
     */
     

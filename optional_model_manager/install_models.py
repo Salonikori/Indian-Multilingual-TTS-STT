@@ -214,10 +214,9 @@ def install_stt(lang: str) -> bool:
 
     if lang == "en":
         files = [
-            ("encoder.int8.onnx", f"{stt_dest}/encoder.int8.onnx"),
-            ("decoder.int8.onnx", f"{stt_dest}/decoder.int8.onnx"),
-            ("joiner.int8.onnx",  f"{stt_dest}/joiner.int8.onnx"),
-            ("tokens.txt",        f"{stt_dest}/tokens.txt"),
+            ("tiny.en-encoder.int8.onnx", f"{stt_dest}/encoder.int8.onnx"),
+            ("tiny.en-decoder.int8.onnx", f"{stt_dest}/decoder.int8.onnx"),
+            ("tiny.en-tokens.txt",        f"{stt_dest}/tokens.txt"),
         ]
     else:
         files = [

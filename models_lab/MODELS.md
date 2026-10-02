@@ -46,14 +46,26 @@ Android device measurements pending (Phase 2).
 
 | Item | Detail |
 |---|---|
-| Source repo | `k2-fsa/sherpa-onnx` Whisper models |
+| Source repo | `k2-fsa/sherpa-onnx` releases (`sherpa-onnx-whisper-tiny.en.tar.bz2`) |
 | Architecture | Whisper (`OfflineWhisperModelConfig`) |
-| **Measured file sizes** | encoder.int8.onnx 39.2 MiB · decoder.int8.onnx 78.5 MiB · tokens.txt 1.04 MB |
-| **Total STT bundle** | **117.2 MiB** |
+| **Measured file sizes** | tiny.en-encoder.int8.onnx 12 MiB · tiny.en-decoder.int8.onnx 105 MiB · tiny.en-tokens.txt 1.04 MB |
+| **Total STT bundle** | **118.0 MiB** |
 | Host load time | Not yet measured |
 | License claim | MIT (Whisper/OpenAI) |
-| Load test | ⬜ Not yet run |
-| WER / RTF | **Expected significant improvement over previous 96.8% WER** (Whisper models typically achieve <10% WER on English) |
+| Load test | ⬜ Not yet run with correct model files |
+| WER / RTF | **Expected <10% WER** (proper Whisper offline model vs previous streaming/offline mismatch) |
+| **Status** | **UPDATED: Fixed model file mapping for proper Whisper offline usage** |
+
+### English — Alternative Whisper base.en INT8 (Future Option)
+
+| Item | Detail |
+|---|---|
+| Source repo | `k2-fsa/sherpa-onnx` releases (`sherpa-onnx-whisper-base.en.tar.bz2`) |
+| Architecture | Whisper (`OfflineWhisperModelConfig`) |
+| **Estimated file sizes** | base.en-encoder.int8.onnx ~25 MiB · base.en-decoder.int8.onnx ~175 MiB · tokens ~1 MB |
+| **Total STT bundle** | **~201 MiB** (exceeds 150MB budget but better accuracy) |
+| Expected WER | **<5% WER** (larger model, better accuracy than tiny.en) |
+| Status | **Available for accuracy-first deployment if size budget allows** |
 
 ### English — Zipformer-GigaSpeech INT8 Transducer (REPLACED)
 
@@ -156,7 +168,7 @@ These languages are registered as STT-only in `LanguageRegistry.kt`.
 | Language | STT MiB | TTS MiB | Total MiB | Within 150 MB limit? |
 |---|---|---|---|---|
 | hi | 188.4 + 0.07 | 17.5 | **206.0** | ❌ Exceeds (STT is 188 MB) |
-| en | 117.2 | 17.7 | **134.9** | ✅ **NEW: Whisper tiny.en** |
+| en | 118.0 | 17.7 | **135.7** | ✅ **UPDATED: Whisper tiny.en with correct file mapping** |
 | ml | 188.5 | 17.5 | **206.0** | ❌ Exceeds |
 | gu | 188.5 | 72.8 | **261.3** | ❌ Exceeds |
 | bn | 188.5 | 109.0 | **297.5** | ❌ Exceeds |
@@ -178,7 +190,7 @@ limit is a hard requirement, a smaller quantised or distilled Indic CTC model wo
 ## Acceptance checklist
 
 - [x] All 10 STT candidates downloaded and sizes measured
-- [x] **UPDATED: English STT replaced with Whisper tiny.en (117MB, expected <10% WER)**
+- [x] **UPDATED: English STT model file mapping fixed for proper Whisper offline usage**
 - [x] **IDENTIFIED: SraVaani streaming model for Hindi (29.6% WER vs current 64.9%)**
 - [x] VAD downloaded and size measured
 - [x] TTS models downloaded for hi, ml, gu, bn, en
@@ -187,7 +199,7 @@ limit is a hard requirement, a smaller quantised or distilled Indic CTC model wo
 - [x] TTS synthesis test passed (Python): en RTF 0.342, hi RTF 0.479
 - [x] `download_manifest.json` written with 32 records
 - [x] **WER normalization added to test_stt.py (lowercase, strip punctuation, Unicode NFC)**
-- [ ] **Whisper tiny.en load test and WER measurement needed**
+- [ ] **Whisper tiny.en load test and WER measurement needed with correct files**
 - [ ] WAV corpus recorded (20–30 per language with references.tsv)
 - [ ] WER measured per language via `test_stt.py`
 - [ ] TTS listening check done (listen to `results/tts/en/` and `results/tts/hi/`)
