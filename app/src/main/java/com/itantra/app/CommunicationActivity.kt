@@ -112,33 +112,27 @@ class CommunicationActivity : ComponentActivity() {
             scope = lifecycleScope,
             onMessage = { payload -> handleIncomingMessage(payload) },
             onMetric = { metric -> 
-                // Update delivery status to DELIVERED
-                messageDeliveryStatus[metric.messageId] = DeliveryStatus.DELIVERED
+                // Update delivery status based on success/failure
+                val status = if (metric.isSuccess) DeliveryStatus.DELIVERED else DeliveryStatus.FAILED
+                messageDeliveryStatus[metric.messageId] = status
                 
                 // Update message timeline status
                 val messageIndex = messageTimeline.indexOfFirst { it.id == metric.messageId }
                 if (messageIndex >= 0) {
                     val message = messageTimeline[messageIndex]
-                    messageTimeline[messageIndex] = message.copy(status = DeliveryStatus.DELIVERED)
+                    messageTimeline[messageIndex] = message.copy(status = status)
                 }
                 
-                alertsAndMeasurements.recordMessageLatency(metric.messageId.hashCode().toLong(), metric.ackRttMillis)
-            }
+                // Record latency metrics (only for successful deliveries)
+                if (metric.isSuccess) {
+                    alertsAndMeasurements.recordMessageLatency(metric.messageId.hashCode().toLong(), metric.ackRttMillis)
+                }
+            },
+            deviceId = getLocalSenderId()
         )
         
         // Start reliable message client
         reliableMessageClient?.start()
-        
-        // Set up message listening for non-reliable messages (ACK, PING)
-        lifecycleScope.launch {
-            transport?.incoming?.collect { payload ->
-                // ReliableMessageClient handles SPEECH/ALERT messages
-                // Only handle ACK and PING here for direct transport feedback
-                if (payload.type == MessageType.ACK || payload.type == MessageType.PING) {
-                    // ACK and PING are handled by ReliableMessageClient internally
-                }
-            }
-        }
         
         setContent {
             MaterialTheme {
@@ -613,7 +607,15 @@ class CommunicationActivity : ComponentActivity() {
                 }
                 
                 // Send through ReliableMessageClient for ACK + retry (alerts retry until ACKed)
-                val messageId = client.sendText(alertText, currentLanguage, alert = true)
+                val messageId = try {
+                    client.sendText(alertText, currentLanguage, alert = true)
+                } catch (e: IllegalStateException) {
+                    showError("Connection lost - alert not sent: ${e.message}")
+                    return@launch
+                } catch (e: Exception) {
+                    showError("Failed to send alert: ${e.message}")
+                    return@launch
+                }
                 
                 // Set initial status to SENDING
                 messageDeliveryStatus[messageId] = DeliveryStatus.SENDING
@@ -658,23 +660,7 @@ class CommunicationActivity : ComponentActivity() {
         
         when (payload.type) {
             MessageType.SPEECH, MessageType.ALERT -> {
-                // Send ACK for received SPEECH/ALERT messages
-                lifecycleScope.launch {
-                    try {
-                        val ackPayload = MessagePayload(
-                            type = MessageType.ACK,
-                            messageId = UUID.randomUUID().toString(),
-                            ackForMessageId = payload.messageId,
-                            seq = System.currentTimeMillis(),
-                            senderId = getLocalSenderId(),
-                            sentAtEpochMs = System.currentTimeMillis()
-                        )
-                        transport?.send(ackPayload)
-                    } catch (e: Exception) {
-                        // Log but don't fail message processing if ACK fails
-                        android.util.Log.w("iTantra", "Failed to send ACK for ${payload.messageId}: ${e.message}")
-                    }
-                }
+                // ACK is now handled by ReliableMessageClient automatically
                 
                 // Pipeline timing: Message received
                 pipelineEventSink.emit(PipelineEvent(
@@ -966,7 +952,15 @@ class CommunicationActivity : ComponentActivity() {
                 }
                 
                 // Send through ReliableMessageClient for ACK + retry
-                val messageId = client.sendText(text, currentLanguage, alert = false)
+                val messageId = try {
+                    client.sendText(text, currentLanguage, alert = false)
+                } catch (e: IllegalStateException) {
+                    showError("Connection lost - message not sent: ${e.message}")
+                    return@launch
+                } catch (e: Exception) {
+                    showError("Failed to send message: ${e.message}")
+                    return@launch
+                }
                 
                 // Set initial status to SENDING
                 messageDeliveryStatus[messageId] = DeliveryStatus.SENDING

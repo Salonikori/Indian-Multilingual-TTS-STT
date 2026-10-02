@@ -37,7 +37,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -50,6 +51,7 @@ class ReliableMessageClientTest {
         assertEquals("Hello", payload.text)
         assertEquals("en", payload.langCode)
         assertEquals(messageId, payload.messageId)
+        assertEquals("test-device", payload.senderId)
         
         clientJob.cancel()
     }
@@ -61,7 +63,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -105,7 +108,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -138,7 +142,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -167,13 +172,14 @@ class ReliableMessageClientTest {
     }
     
     @Test
-    fun speechMessagesDoNotRetry() = runTest {
+    fun speechMessagesNowRetry() = runTest {
         val fakeTransport = FakeTransport()
         val client = ReliableMessageClient(
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -182,12 +188,11 @@ class ReliableMessageClientTest {
         assertEquals(MessageType.SPEECH, originalPayload.type)
         runCurrent()
         
-        // SPEECH messages don't retry in current implementation
-        advanceTimeBy(3000)
+        // SPEECH messages now retry (3 attempts)
+        advanceTimeBy(2000) // After 1.5s, first retry should happen
         runCurrent()
         
-        // Only one message sent (no retries for SPEECH)
-        assertEquals(1, fakeTransport.sentPayloads.size)
+        assertTrue("SPEECH messages should now retry", fakeTransport.sentPayloads.size > 1)
         
         clientJob.cancel()
     }
@@ -199,7 +204,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -233,7 +239,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -262,7 +269,8 @@ class ReliableMessageClientTest {
             transport = fakeTransport,
             scope = backgroundScope,
             onMessage = { receivedMessages.add(it) },
-            onMetric = { deliveryMetrics.add(it) }
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
         )
         val clientJob = client.start()
         
@@ -279,6 +287,73 @@ class ReliableMessageClientTest {
         
         // Should not appear in received messages
         assertEquals(0, receivedMessages.size)
+        
+        clientJob.cancel()
+    }
+    
+    @Test
+    fun sendTextFailsWhenNotConnected() = runTest {
+        val fakeTransport = FakeTransport()
+        // Simulate disconnected state
+        fakeTransport.simulateDisconnection()
+        
+        val client = ReliableMessageClient(
+            transport = fakeTransport,
+            scope = backgroundScope,
+            onMessage = { receivedMessages.add(it) },
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
+        )
+        val clientJob = client.start()
+        
+        // Should throw IllegalStateException when not connected
+        var exception: Exception? = null
+        try {
+            client.sendText("Test message", "en")
+        } catch (e: Exception) {
+            exception = e
+        }
+        
+        assertNotNull("Should throw exception when not connected", exception)
+        assertTrue("Should be IllegalStateException", exception is IllegalStateException)
+        
+        clientJob.cancel()
+    }
+    
+    @Test
+    fun automaticAckSentForReceivedMessages() = runTest {
+        val fakeTransport = FakeTransport()
+        val client = ReliableMessageClient(
+            transport = fakeTransport,
+            scope = backgroundScope,
+            onMessage = { receivedMessages.add(it) },
+            onMetric = { deliveryMetrics.add(it) },
+            deviceId = "test-device"
+        )
+        val clientJob = client.start()
+        
+        val incomingPayload = MessagePayload(
+            type = MessageType.SPEECH,
+            messageId = "incoming-test",
+            seq = 1,
+            senderId = "remote-device",
+            sentAtEpochMs = System.currentTimeMillis(),
+            text = "Hello from remote",
+            langCode = "en"
+        )
+        
+        fakeTransport.simulateIncoming(incomingPayload)
+        runCurrent()
+        
+        // Should have received the message
+        assertEquals(1, receivedMessages.size)
+        assertEquals("Hello from remote", receivedMessages.first().text)
+        
+        // Should have sent an ACK automatically
+        val ackMessages = fakeTransport.sentPayloads.filter { it.type == MessageType.ACK }
+        assertEquals(1, ackMessages.size)
+        assertEquals("incoming-test", ackMessages.first().ackForMessageId)
+        assertEquals("test-device", ackMessages.first().senderId)
         
         clientJob.cancel()
     }
