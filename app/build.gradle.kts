@@ -59,7 +59,17 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Only apply signing config if keystore.properties exists and has all required values
+            val storeFile = keystoreProperties.getProperty("storeFile")?.trim()
+            val storePassword = keystoreProperties.getProperty("storePassword")?.trim()
+            val keyAlias = keystoreProperties.getProperty("keyAlias")?.trim()  
+            val keyPassword = keystoreProperties.getProperty("keyPassword")?.trim()
+            
+            if (!storeFile.isNullOrBlank() && !storePassword.isNullOrBlank() && 
+                !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            
             isMinifyEnabled = false
 
             proguardFiles(

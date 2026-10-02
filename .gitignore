@@ -21,3 +21,11 @@ models_lab/test_audio/**/*.wav
 models_lab/test_audio/**/*.txt
 !models_lab/test_audio/README.md
 optional_model_manager/**/__pycache__/
+
+# Security: signing credentials and temporary files
+keystore.properties
+*.jks
+*.keystore
+*.p12
+*.bak
+build-errors.txt
