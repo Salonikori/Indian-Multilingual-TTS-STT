@@ -27,15 +27,35 @@ def normalize_text(text: str) -> str:
     
     return text.strip()
 
-def load_rows(tsv: Path):
+def load_rows(tsv: Path, audio_dir: Path = None):
+    """Load rows from TSV file, supporting both old and new corpus formats."""
     rows = []
     with tsv.open("r", encoding="utf-8-sig", newline="") as f:
         for row in csv.DictReader(f, delimiter="\t"):
-            if not row or not row.get("wav_path") or not row.get("reference"):
+            if not row:
                 continue
-            wav = Path(row["wav_path"])
-            if not wav.is_absolute(): wav = ROOT / wav
-            rows.append((row.get("language", "unknown").strip(), wav, row["reference"].strip()))
+            
+            # Support both old format (wav_path column) and new format (filename column)
+            if row.get("filename") and row.get("reference"):
+                # New corpus format from prepare_real_speech_corpus.py
+                filename = row["filename"]
+                if audio_dir:
+                    wav = audio_dir / filename
+                else:
+                    wav = tsv.parent / filename
+                reference = row["reference"].strip()
+                language = "unknown"  # Will be set by --language arg
+            elif row.get("wav_path") and row.get("reference"):
+                # Old format
+                wav = Path(row["wav_path"])
+                if not wav.is_absolute(): 
+                    wav = ROOT / wav
+                reference = row["reference"].strip()
+                language = row.get("language", "unknown").strip()
+            else:
+                continue
+            
+            rows.append((language, wav, reference))
     return rows
 
 def make_recognizer(args):
@@ -71,7 +91,8 @@ def make_recognizer(args):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--references", default="test_audio/references.tsv",
-                   help="TSV columns: language, wav_path, reference")
+                   help="TSV columns: language, wav_path, reference (old format) OR filename, reference (new format)")
+    p.add_argument("--audio-dir", help="Directory containing WAV files (for new corpus format)")
     p.add_argument("--model-type", choices=["transducer", "ctc", "nemo_ctc", "whisper"], required=True)
     p.add_argument("--language", required=True, help="Language tag for this model, e.g. hi or en")
     p.add_argument("--encoder", help="Transducer/Whisper encoder ONNX")
@@ -89,9 +110,33 @@ def main():
                  ["tokens", "encoder", "decoder", "joiner"]):
         if not getattr(args, name):
             p.error(f"--{name.replace('_','-')} is required for {args.model_type}")
-    rows = [r for r in load_rows((ROOT / args.references).resolve()) if r[0] == args.language]
+    
+    # Handle audio directory for new corpus format
+    audio_dir = Path(args.audio_dir) if args.audio_dir else None
+    if audio_dir and not audio_dir.is_dir():
+        raise SystemExit(f"Audio directory not found: {audio_dir}")
+    
+    # Load references - check both old and new locations
+    references_path = Path(args.references)
+    if not references_path.is_absolute():
+        if audio_dir:
+            # First try in the audio directory (new format)
+            references_path = audio_dir / "references.tsv"
+            if not references_path.exists():
+                # Fall back to old location
+                references_path = ROOT / args.references
+        else:
+            references_path = ROOT / args.references
+    
+    if not references_path.exists():
+        raise SystemExit(f"References file not found: {references_path}")
+    
+    rows = load_rows(references_path, audio_dir)
+    
+    # Filter by language
+    rows = [r for r in rows if r[0] == args.language or r[0] == "unknown"]
     if not rows:
-        raise SystemExit(f"No rows for language={args.language!r} in {args.references}. Add real WAVs and references.")
+        raise SystemExit(f"No rows for language={args.language!r} in {references_path}. Add real WAVs and references.")
     for _, wav, _ in rows:
         if not wav.is_file(): raise SystemExit(f"Missing WAV: {wav}")
     recognizer = make_recognizer(args)  # model-load check happens here

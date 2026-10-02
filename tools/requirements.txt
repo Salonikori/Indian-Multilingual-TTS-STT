@@ -1,0 +1,6 @@
+# Requirements for tools/prepare_real_speech_corpus.py
+datasets>=2.14.0
+soundfile>=0.12.1
+librosa>=0.10.1
+pandas>=2.0.0
+tqdm>=4.64.0
