@@ -1,372 +1,384 @@
 #!/usr/bin/env python3
 """
-Real Speech Corpus Preparation Tool
+Create real speech test corpus for iTantra WER evaluation.
 
-Downloads and prepares authentic speech datasets (FLEURS, Common Voice) for 
-WER evaluation of iTantra STT models. Creates test corpora with real human
-speech instead of synthetic TTS-generated samples.
+Downloads ~30 short test utterances per language from Google FLEURS (or Mozilla Common Voice)
+and creates a proper test corpus to replace TTS-generated synthetic audio.
 
-Usage:
-    python prepare_real_speech_corpus.py --language hi --dataset fleurs --samples 50
-    python prepare_real_speech_corpus.py --language en --dataset common_voice --samples 30
+This addresses the requirement that TTS-generated audio is invalid for STT accuracy measurement
+(circular validation). Real human speech is needed for proper WER assessment.
 
-Requirements:
-    pip install datasets soundfile librosa pandas tqdm
+Target languages: Hindi (hi_in), English (en_us)
+Output: models_lab/test_audio_real/ with proper WAV files and references.tsv
+
+Data sources:
+- Google FLEURS: https://huggingface.co/datasets/google/fleurs
+- Mozilla Common Voice: https://huggingface.co/datasets/mozilla-foundation/common_voice_13_0
+
+License compliance:
+- FLEURS: CC BY 4.0
+- Common Voice: CC0 1.0 (Public Domain)
 """
 
-import argparse
 import os
 import sys
-from pathlib import Path
 import json
-import csv
-from typing import Dict, List, Tuple, Optional
+import shutil
 import logging
-from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Dict, Tuple, Optional
+import argparse
 
-try:
-    from datasets import load_dataset
-    import soundfile as sf
-    import librosa
-    import pandas as pd
-    from tqdm import tqdm
-except ImportError as e:
-    print(f"Error: Missing required dependency: {e}")
-    print("Install with: pip install datasets soundfile librosa pandas tqdm")
-    sys.exit(1)
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
+def check_dependencies():
+    """Check if required packages are available."""
+    missing = []
+    
+    try:
+        import librosa
+    except ImportError:
+        missing.append("librosa")
+    
+    try:
+        import soundfile as sf
+    except ImportError:
+        missing.append("soundfile")
+    
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        missing.append("datasets")
+    
+    if missing:
+        print("Missing required packages. Install with:")
+        print(f"pip install {' '.join(missing)}")
+        sys.exit(1)
 
-@dataclass
-class CorpusConfig:
-    """Configuration for corpus preparation"""
-    language: str
-    dataset_name: str
-    samples_count: int
-    output_dir: str
-    target_sample_rate: int = 16000
-    max_duration: float = 10.0  # seconds
-    min_duration: float = 1.0   # seconds
-
-
-class RealSpeechCorpusPreparator:
-    """Prepares real speech corpora from public datasets"""
+def download_fleurs_samples(language: str, num_samples: int = 30) -> List[Dict]:
+    """
+    Download samples from Google FLEURS dataset.
     
-    # Language code mappings
-    FLEURS_LANG_CODES = {
-        'hi': 'hi_in',  # Hindi (India)
-        'en': 'en_us',  # English (US)
-        'gu': 'gu_in',  # Gujarati (India)
-        'bn': 'bn_in',  # Bengali (India)
-        'ta': 'ta_in',  # Tamil (India)
-        'te': 'te_in',  # Telugu (India)
-        'mr': 'mr_in',  # Marathi (India)
-        'ml': 'ml_in',  # Malayalam (India)
-        'kn': 'kn_in',  # Kannada (India)
-        'or': 'or_in',  # Odia (India)
-    }
+    Args:
+        language: Language code (hi_in for Hindi, en_us for English)
+        num_samples: Number of samples to download
     
-    COMMON_VOICE_LANG_CODES = {
-        'hi': 'hi',     # Hindi
-        'en': 'en',     # English
-        'gu': 'gu-IN',  # Gujarati
-        'bn': 'bn',     # Bengali
-        'ta': 'ta',     # Tamil
-        'te': 'te',     # Telugu
-        'mr': 'mr',     # Marathi
-        'ml': 'ml',     # Malayalam
-        'kn': 'kn',     # Kannada
-        # Note: Odia not available in Common Voice
-    }
-    
-    def __init__(self, config: CorpusConfig):
-        self.config = config
-        self.logger = self._setup_logging()
+    Returns:
+        List of sample dictionaries with audio and transcription
+    """
+    try:
+        from datasets import load_dataset
         
-        # Create output directory
-        Path(config.output_dir).mkdir(parents=True, exist_ok=True)
+        logger.info(f"Loading FLEURS dataset for {language}...")
         
-    def _setup_logging(self) -> logging.Logger:
-        """Setup logging configuration"""
-        logger = logging.getLogger(__name__)
-        logger.setLevel(logging.INFO)
+        # Load FLEURS test split for the specified language
+        dataset = load_dataset("google/fleurs", language, split="test", streaming=True)
         
-        handler = logging.StreamHandler()
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        
-        return logger
-    
-    def prepare_corpus(self) -> str:
-        """Prepare the real speech corpus"""
-        self.logger.info(f"Preparing {self.config.dataset_name} corpus for {self.config.language}")
-        self.logger.info(f"Target: {self.config.samples_count} samples")
-        
-        if self.config.dataset_name.lower() == 'fleurs':
-            return self._prepare_fleurs_corpus()
-        elif self.config.dataset_name.lower() == 'common_voice':
-            return self._prepare_common_voice_corpus()
-        else:
-            raise ValueError(f"Unsupported dataset: {self.config.dataset_name}")
-    
-    def _prepare_fleurs_corpus(self) -> str:
-        """Prepare corpus from Google FLEURS dataset"""
-        lang_code = self.FLEURS_LANG_CODES.get(self.config.language)
-        if not lang_code:
-            raise ValueError(f"Language {self.config.language} not supported in FLEURS")
-        
-        self.logger.info(f"Loading FLEURS dataset for {lang_code}")
-        
-        try:
-            # Load test split of FLEURS dataset
-            dataset = load_dataset("google/fleurs", lang_code, split="test")
-        except Exception as e:
-            self.logger.error(f"Failed to load FLEURS dataset: {e}")
-            raise
-        
-        return self._process_dataset(dataset, "fleurs")
-    
-    def _prepare_common_voice_corpus(self) -> str:
-        """Prepare corpus from Mozilla Common Voice dataset"""
-        lang_code = self.COMMON_VOICE_LANG_CODES.get(self.config.language)
-        if not lang_code:
-            raise ValueError(f"Language {self.config.language} not supported in Common Voice")
-        
-        self.logger.info(f"Loading Common Voice dataset for {lang_code}")
-        
-        try:
-            # Use latest Common Voice version (10.0)
-            dataset = load_dataset("mozilla-foundation/common_voice_10_0", lang_code, split="test")
-        except Exception as e:
-            self.logger.error(f"Failed to load Common Voice dataset: {e}")
-            # Fallback to older version
-            try:
-                dataset = load_dataset("mozilla-foundation/common_voice_8_0", lang_code, split="test")
-                self.logger.info("Fallback to Common Voice 8.0")
-            except Exception as e2:
-                self.logger.error(f"Failed to load fallback dataset: {e2}")
-                raise
-        
-        return self._process_dataset(dataset, "common_voice")
-    
-    def _process_dataset(self, dataset, dataset_source: str) -> str:
-        """Process the loaded dataset and create corpus"""
         samples = []
-        references = []
-        metadata = []
         
-        self.logger.info(f"Processing {len(dataset)} available samples")
+        logger.info(f"Extracting {num_samples} samples from FLEURS {language} test set...")
         
-        # Determine audio and text field names based on dataset source
-        if dataset_source == "fleurs":
-            audio_field = "audio"
-            text_field = "transcription"
-        else:  # common_voice
-            audio_field = "audio"
-            text_field = "sentence"
-        
-        processed_count = 0
-        skipped_count = 0
-        
-        for i, sample in enumerate(tqdm(dataset, desc="Processing samples")):
-            if processed_count >= self.config.samples_count:
+        for i, sample in enumerate(dataset):
+            if len(samples) >= num_samples:
                 break
             
-            try:
-                # Get audio and text
-                audio_data = sample[audio_field]
-                text = sample[text_field].strip()
-                
-                if not text:
-                    skipped_count += 1
-                    continue
-                
-                # Get audio array and sampling rate
-                audio_array = audio_data['array']
-                sample_rate = audio_data['sampling_rate']
-                
-                # Check duration
-                duration = len(audio_array) / sample_rate
-                if duration < self.config.min_duration or duration > self.config.max_duration:
-                    skipped_count += 1
-                    continue
-                
-                # Resample if necessary
-                if sample_rate != self.config.target_sample_rate:
-                    audio_array = librosa.resample(
-                        audio_array, 
-                        orig_sr=sample_rate, 
-                        target_sr=self.config.target_sample_rate
-                    )
-                
-                # Save audio file
-                filename = f"{self.config.language}_{dataset_source}_{processed_count:04d}.wav"
-                filepath = os.path.join(self.config.output_dir, filename)
-                
-                sf.write(filepath, audio_array, self.config.target_sample_rate)
-                
-                # Store metadata
-                samples.append(filename)
-                references.append(text)
-                metadata.append({
-                    'filename': filename,
-                    'reference': text,
-                    'duration': duration,
-                    'sample_rate': self.config.target_sample_rate,
-                    'dataset_source': dataset_source,
-                    'original_index': i
-                })
-                
-                processed_count += 1
-                
-            except Exception as e:
-                self.logger.warning(f"Failed to process sample {i}: {e}")
-                skipped_count += 1
+            # Extract necessary information
+            audio_data = sample["audio"]["array"]
+            sample_rate = sample["audio"]["sampling_rate"]
+            transcription = sample["transcription"].strip()
+            
+            # Skip very short utterances (< 1 second) or very long ones (> 10 seconds)
+            duration = len(audio_data) / sample_rate
+            if duration < 1.0 or duration > 10.0:
                 continue
+            
+            # Skip empty transcriptions
+            if not transcription:
+                continue
+            
+            samples.append({
+                "audio": audio_data,
+                "sample_rate": sample_rate,
+                "transcription": transcription,
+                "duration": duration,
+                "source": f"FLEURS_{language}",
+                "index": i
+            })
+            
+            if len(samples) % 5 == 0:
+                logger.info(f"  Collected {len(samples)} samples...")
         
-        # Create references.tsv file for WER evaluation
-        references_file = os.path.join(self.config.output_dir, "references.tsv")
-        with open(references_file, 'w', encoding='utf-8', newline='') as f:
-            writer = csv.writer(f, delimiter='\t')
-            writer.writerow(['filename', 'reference'])
-            for filename, reference in zip(samples, references):
-                writer.writerow([filename, reference])
+        logger.info(f"Successfully collected {len(samples)} samples from FLEURS {language}")
+        return samples
         
-        # Create detailed metadata file
-        metadata_file = os.path.join(self.config.output_dir, "corpus_metadata.json")
-        with open(metadata_file, 'w', encoding='utf-8') as f:
-            json.dump({
-                'config': {
-                    'language': self.config.language,
-                    'dataset': self.config.dataset_name,
-                    'target_sample_rate': self.config.target_sample_rate,
-                    'samples_requested': self.config.samples_count,
-                    'samples_processed': processed_count,
-                    'samples_skipped': skipped_count
-                },
-                'samples': metadata
-            }, f, indent=2, ensure_ascii=False)
-        
-        # Create summary
-        summary = f"""
-Real Speech Corpus Preparation Complete
-======================================
+    except Exception as e:
+        logger.error(f"Error downloading FLEURS {language}: {e}")
+        return []
 
-Language: {self.config.language}
-Dataset: {self.config.dataset_name}
-Samples processed: {processed_count}
-Samples skipped: {skipped_count}
-Output directory: {self.config.output_dir}
-
-Files created:
-- {processed_count} WAV files (16 kHz mono)
-- references.tsv (for WER evaluation)
-- corpus_metadata.json (detailed metadata)
-
-Usage with test_stt.py:
-    python models_lab/test_stt.py --language {self.config.language} --audio_dir {self.config.output_dir}
-        """
+def download_common_voice_samples(language: str, num_samples: int = 30) -> List[Dict]:
+    """
+    Download samples from Mozilla Common Voice dataset.
+    
+    Args:
+        language: Language code (hi for Hindi, en for English)
+        num_samples: Number of samples to download
+    
+    Returns:
+        List of sample dictionaries with audio and transcription
+    """
+    try:
+        from datasets import load_dataset
         
-        self.logger.info(summary)
+        logger.info(f"Loading Common Voice dataset for {language}...")
         
-        # Write summary to file
-        summary_file = os.path.join(self.config.output_dir, "preparation_summary.txt")
-        with open(summary_file, 'w', encoding='utf-8') as f:
-            f.write(summary)
+        # Load Common Voice test split
+        dataset = load_dataset("mozilla-foundation/common_voice_13_0", language, split="test", streaming=True)
         
-        return self.config.output_dir
+        samples = []
+        
+        logger.info(f"Extracting {num_samples} samples from Common Voice {language} test set...")
+        
+        for i, sample in enumerate(dataset):
+            if len(samples) >= num_samples:
+                break
+            
+            # Extract necessary information
+            audio_data = sample["audio"]["array"]
+            sample_rate = sample["audio"]["sampling_rate"]
+            transcription = sample["sentence"].strip()
+            
+            # Skip very short utterances (< 1 second) or very long ones (> 10 seconds)
+            duration = len(audio_data) / sample_rate
+            if duration < 1.0 or duration > 10.0:
+                continue
+            
+            # Skip empty transcriptions
+            if not transcription:
+                continue
+            
+            samples.append({
+                "audio": audio_data,
+                "sample_rate": sample_rate,
+                "transcription": transcription,
+                "duration": duration,
+                "source": f"CommonVoice_{language}",
+                "index": i
+            })
+            
+            if len(samples) % 5 == 0:
+                logger.info(f"  Collected {len(samples)} samples...")
+        
+        logger.info(f"Successfully collected {len(samples)} samples from Common Voice {language}")
+        return samples
+        
+    except Exception as e:
+        logger.error(f"Error downloading Common Voice {language}: {e}")
+        return []
 
+def convert_and_save_audio(samples: List[Dict], output_dir: Path, language: str) -> List[Tuple[str, str]]:
+    """
+    Convert audio samples to 16kHz mono WAV and save with transcriptions.
+    
+    Args:
+        samples: List of audio samples
+        output_dir: Output directory
+        language: Language code for filename prefix
+    
+    Returns:
+        List of (filename, transcription) tuples
+    """
+    import librosa
+    import soundfile as sf
+    
+    # Create language-specific directory
+    lang_dir = output_dir / language
+    lang_dir.mkdir(parents=True, exist_ok=True)
+    
+    saved_samples = []
+    
+    logger.info(f"Converting and saving {len(samples)} audio files for {language}...")
+    
+    for i, sample in enumerate(samples):
+        try:
+            # Generate filename
+            filename = f"{language}_{i+1:03d}.wav"
+            filepath = lang_dir / filename
+            
+            # Convert to 16kHz mono if needed
+            audio = sample["audio"]
+            sr = sample["sample_rate"]
+            
+            # Convert to mono if stereo
+            if len(audio.shape) > 1:
+                audio = librosa.to_mono(audio.T)
+            
+            # Resample to 16kHz if needed
+            if sr != 16000:
+                audio = librosa.resample(audio, orig_sr=sr, target_sr=16000)
+            
+            # Save as WAV
+            sf.write(filepath, audio, 16000, format='WAV', subtype='PCM_16')
+            
+            saved_samples.append((filename, sample["transcription"]))
+            
+            if (i + 1) % 10 == 0:
+                logger.info(f"  Saved {i + 1} files...")
+                
+        except Exception as e:
+            logger.warning(f"Failed to save sample {i}: {e}")
+            continue
+    
+    logger.info(f"Successfully saved {len(saved_samples)} audio files for {language}")
+    return saved_samples
+
+def create_references_tsv(samples_by_lang: Dict[str, List[Tuple[str, str]]], output_file: Path, dataset_info: Dict):
+    """
+    Create references.tsv file with all samples and metadata.
+    
+    Args:
+        samples_by_lang: Dictionary mapping language -> [(filename, transcription), ...]
+        output_file: Output TSV file path
+        dataset_info: Metadata about the datasets used
+    """
+    logger.info(f"Creating references.tsv at {output_file}...")
+    
+    with output_file.open('w', encoding='utf-8', newline='') as f:
+        # Write header
+        f.write("language\tfilename\treference\n")
+        
+        # Write samples
+        for language, samples in samples_by_lang.items():
+            for filename, transcription in samples:
+                # Use relative path for filename
+                f.write(f"{language}\t{language}/{filename}\t{transcription}\n")
+    
+    logger.info(f"Created references.tsv with {sum(len(samples) for samples in samples_by_lang.values())} samples")
+    
+    # Also create a metadata file
+    metadata_file = output_file.parent / "dataset_info.json"
+    with metadata_file.open('w', encoding='utf-8') as f:
+        json.dump(dataset_info, f, indent=2, ensure_ascii=False)
+    
+    logger.info(f"Created dataset metadata at {metadata_file}")
 
 def main():
-    """Main entry point"""
-    parser = argparse.ArgumentParser(
-        description="Prepare real speech corpus for WER evaluation",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    # Prepare 50 Hindi samples from FLEURS
-    python prepare_real_speech_corpus.py --language hi --dataset fleurs --samples 50
-    
-    # Prepare 30 English samples from Common Voice
-    python prepare_real_speech_corpus.py --language en --dataset common_voice --samples 30
-    
-    # Prepare Gujarati samples with custom output directory
-    python prepare_real_speech_corpus.py --language gu --dataset fleurs --samples 25 --output corpus/gujarati_real
-        """
-    )
-    
-    parser.add_argument(
-        '--language', '-l',
-        required=True,
-        choices=['hi', 'en', 'gu', 'bn', 'ta', 'te', 'mr', 'ml', 'kn', 'or'],
-        help='Language code (hi=Hindi, en=English, etc.)'
-    )
-    
-    parser.add_argument(
-        '--dataset', '-d',
-        required=True,
-        choices=['fleurs', 'common_voice'],
-        help='Dataset source (fleurs or common_voice)'
-    )
-    
-    parser.add_argument(
-        '--samples', '-n',
-        type=int,
-        default=30,
-        help='Number of samples to prepare (default: 30)'
-    )
-    
-    parser.add_argument(
-        '--output', '-o',
-        default=None,
-        help='Output directory (default: models_lab/test_audio/real_speech/{language}_{dataset})'
-    )
-    
-    parser.add_argument(
-        '--max-duration',
-        type=float,
-        default=10.0,
-        help='Maximum audio duration in seconds (default: 10.0)'
-    )
-    
-    parser.add_argument(
-        '--min-duration',
-        type=float,
-        default=1.0,
-        help='Minimum audio duration in seconds (default: 1.0)'
-    )
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--dataset", choices=["fleurs", "common_voice"], default="fleurs",
+                       help="Dataset to use (default: fleurs)")
+    parser.add_argument("--languages", nargs="+", default=["hi", "en"],
+                       help="Languages to download (default: hi en)")
+    parser.add_argument("--num-samples", type=int, default=30,
+                       help="Number of samples per language (default: 30)")
+    parser.add_argument("--output-dir", default="models_lab/test_audio_real",
+                       help="Output directory (default: models_lab/test_audio_real)")
+    parser.add_argument("--dry-run", action="store_true",
+                       help="Show what would be downloaded without actually downloading")
     
     args = parser.parse_args()
     
-    # Set default output directory if not specified
-    if args.output is None:
-        script_dir = Path(__file__).parent
-        project_root = script_dir.parent
-        args.output = project_root / "models_lab" / "test_audio" / "real_speech" / f"{args.language}_{args.dataset}"
+    # Check dependencies
+    check_dependencies()
     
-    # Create configuration
-    config = CorpusConfig(
-        language=args.language,
-        dataset_name=args.dataset,
-        samples_count=args.samples,
-        output_dir=str(args.output),
-        max_duration=args.max_duration,
-        min_duration=args.min_duration
-    )
+    # Set up paths
+    root = Path(__file__).parent.parent
+    output_dir = root / args.output_dir
     
-    # Prepare corpus
-    try:
-        preparator = RealSpeechCorpusPreparator(config)
-        output_dir = preparator.prepare_corpus()
-        print(f"\n✅ Corpus prepared successfully in: {output_dir}")
-        print(f"📊 Use with: python models_lab/test_stt.py --language {args.language} --audio_dir {output_dir}")
+    if args.dry_run:
+        print("DRY RUN - Would download:")
+        print(f"  Dataset: {args.dataset}")
+        print(f"  Languages: {args.languages}")
+        print(f"  Samples per language: {args.num_samples}")
+        print(f"  Output directory: {output_dir}")
+        return
+    
+    print("iTantra Real Speech Corpus Creator")
+    print("=" * 50)
+    print(f"Dataset: {args.dataset}")
+    print(f"Languages: {args.languages}")
+    print(f"Samples per language: {args.num_samples}")
+    print(f"Output directory: {output_dir}")
+    print()
+    
+    # Create output directory
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Download and process samples
+    all_samples = {}
+    dataset_info = {
+        "dataset": args.dataset,
+        "languages": args.languages,
+        "num_samples_requested": args.num_samples,
+        "created_at": "2024-10-02",
+        "source": "prepare_real_speech_corpus.py",
+        "license": "CC BY 4.0 (FLEURS)" if args.dataset == "fleurs" else "CC0 1.0 (Common Voice)",
+        "samples_by_language": {}
+    }
+    
+    for language in args.languages:
+        logger.info(f"\n--- Processing {language} ---")
         
-    except Exception as e:
-        print(f"\n❌ Failed to prepare corpus: {e}")
-        sys.exit(1)
-
+        # Map language codes for datasets
+        if args.dataset == "fleurs":
+            # FLEURS uses specific locale codes
+            dataset_lang = "hi_in" if language == "hi" else "en_us"
+            samples = download_fleurs_samples(dataset_lang, args.num_samples)
+        else:
+            # Common Voice uses simple language codes
+            samples = download_common_voice_samples(language, args.num_samples)
+        
+        if not samples:
+            logger.warning(f"No samples downloaded for {language}")
+            continue
+        
+        # Convert and save audio files
+        saved_files = convert_and_save_audio(samples, output_dir, language)
+        all_samples[language] = saved_files
+        
+        # Update metadata
+        dataset_info["samples_by_language"][language] = {
+            "samples_downloaded": len(samples),
+            "samples_saved": len(saved_files),
+            "average_duration": sum(s["duration"] for s in samples) / len(samples),
+            "source_dataset": f"{args.dataset}_{dataset_lang if args.dataset == 'fleurs' else language}"
+        }
+    
+    if not all_samples:
+        logger.error("No samples were successfully downloaded for any language")
+        return
+    
+    # Create references.tsv
+    references_file = output_dir / "references.tsv"
+    create_references_tsv(all_samples, references_file, dataset_info)
+    
+    # Print summary
+    print("\n" + "=" * 50)
+    print("CORPUS CREATION COMPLETE")
+    print("=" * 50)
+    
+    total_samples = sum(len(samples) for samples in all_samples.values())
+    print(f"Total samples: {total_samples}")
+    
+    for language, samples in all_samples.items():
+        print(f"  {language}: {len(samples)} samples")
+    
+    print(f"\nFiles created:")
+    print(f"  Audio files: {output_dir}/{{hi,en}}/{{lang}}_001.wav, ...")
+    print(f"  References: {references_file}")
+    print(f"  Metadata: {output_dir}/dataset_info.json")
+    
+    print(f"\nDataset info:")
+    print(f"  Source: {dataset_info['dataset'].upper()}")
+    print(f"  License: {dataset_info['license']}")
+    
+    print(f"\nNext steps:")
+    print(f"1. Test STT accuracy:")
+    print(f"   python models_lab/test_stt.py --references {references_file} --audio-dir {output_dir} --model-type whisper --language en \\")
+    print(f"     --encoder models_lab/models/stt/en/encoder.int8.onnx \\")
+    print(f"     --decoder models_lab/models/stt/en/decoder.int8.onnx \\")
+    print(f"     --tokens models_lab/models/stt/en/tokens.txt")
+    print(f"2. Results will be labeled as 'real human speech ({args.dataset.upper()} test subset, N={total_samples})'")
 
 if __name__ == "__main__":
     main()

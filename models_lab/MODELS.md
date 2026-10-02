@@ -163,6 +163,66 @@ These languages are registered as STT-only in `LanguageRegistry.kt`.
 
 ---
 
+## Real speech WER testing
+
+The existing 30+30 sentences in `models_lab/test_audio` are TTS-generated and invalid for accuracy 
+measurement (circular validation). Real human speech is required for proper WER assessment.
+
+### Real speech corpus creation
+
+**Script:** `tools/prepare_real_speech_corpus.py`  
+**Target:** ~30 short test utterances per language (Hindi: hi_in, English: en_us)  
+**Output:** `models_lab/test_audio_real/` with 16 kHz mono PCM WAV + `references.tsv`
+
+**Data sources:**
+- **Google FLEURS** (CC BY 4.0): https://huggingface.co/datasets/google/fleurs
+- **Mozilla Common Voice** (CC0 1.0): https://huggingface.co/datasets/mozilla-foundation/common_voice_13_0
+
+**Usage:**
+```bash
+# Install dependencies
+pip install -r tools/requirements.txt
+
+# Download FLEURS corpus (recommended)
+python tools/prepare_real_speech_corpus.py --dataset fleurs --languages hi en --num-samples 30
+
+# Alternative: Common Voice corpus  
+python tools/prepare_real_speech_corpus.py --dataset common_voice --languages hi en --num-samples 30
+
+# Test corpus creation with mock data
+python tools/test_corpus_creator.py
+```
+
+**Output format:**
+- `models_lab/test_audio_real/hi/hi_001.wav` (16 kHz mono)
+- `models_lab/test_audio_real/en/en_001.wav` (16 kHz mono)  
+- `models_lab/test_audio_real/references.tsv` (language, filename, reference)
+- `models_lab/test_audio_real/dataset_info.json` (metadata and license info)
+
+**WER testing on real speech:**
+```bash
+# English with Whisper tiny.en
+python models_lab/test_stt.py --references models_lab/test_audio_real/references.tsv \
+  --audio-dir models_lab/test_audio_real --model-type whisper --language en \
+  --encoder models_lab/models/stt/en/encoder.int8.onnx \
+  --decoder models_lab/models/stt/en/decoder.int8.onnx \
+  --tokens models_lab/models/stt/en/tokens.txt
+
+# Hindi with NeMo CTC
+python models_lab/test_stt.py --references models_lab/test_audio_real/references.tsv \
+  --audio-dir models_lab/test_audio_real --model-type nemo_ctc --language hi \
+  --model models_lab/models/stt/hi/model.int8.onnx \
+  --tokens models_lab/models/stt/hi/tokens.txt
+```
+
+Results will be labeled as "real human speech (FLEURS test subset, N=30)" to distinguish 
+from synthetic TTS corpus results.
+
+**Note:** The existing `test_audio/` synthetic corpus is kept for smoke tests, latency 
+measurements, and RTF benchmarking only. It should never be used for WER accuracy claims.
+
+---
+
 ## Bundle sizes per language
 
 | Language | STT MiB | TTS MiB | Total MiB | Within 150 MB limit? |
@@ -199,9 +259,10 @@ limit is a hard requirement, a smaller quantised or distilled Indic CTC model wo
 - [x] TTS synthesis test passed (Python): en RTF 0.342, hi RTF 0.479
 - [x] `download_manifest.json` written with 32 records
 - [x] **WER normalization added to test_stt.py (lowercase, strip punctuation, Unicode NFC)**
+- [x] **Real speech corpus creator implemented (tools/prepare_real_speech_corpus.py)**
+- [ ] **Real speech corpus downloaded from FLEURS/Common Voice (~30 samples per language)**
 - [ ] **Whisper tiny.en load test and WER measurement needed with correct files**
-- [ ] WAV corpus recorded (20–30 per language with references.tsv)
-- [ ] WER measured per language via `test_stt.py`
+- [ ] WER measured per language via `test_stt.py` on real speech corpus
 - [ ] TTS listening check done (listen to `results/tts/en/` and `results/tts/hi/`)
 - [ ] Android device load times measured (Phase 2)
 - [ ] `ModelStatus` updated from `NOT_INSTALLED` to `VALIDATED` for passing languages
