@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,10 +44,19 @@ import java.util.UUID
 
 enum class DeliveryStatus { SENDING, DELIVERED, FAILED }
 
+data class MessageWithStatus(
+    val id: String,
+    val text: String,
+    val timestamp: Long,
+    val type: String, // "SENT" or "RECEIVED"
+    val status: DeliveryStatus? = null // Only for sent messages
+)
+
 class CommunicationActivity : ComponentActivity() {
     
     private var languageManager: LanguageManager? = null
     private var transport: BluetoothClassicTransport? = null
+    private var reliableMessageClient: ReliableMessageClient? = null
     private var playbackRouter: PlaybackRouter? = null
     private var audioCapture: AudioCapture? = null
     private var liveSttController: LiveSttController? = null
@@ -61,6 +71,7 @@ class CommunicationActivity : ComponentActivity() {
     // Simple delivery tracking for Step 2
     private val messageDeliveryStatus = mutableMapOf<String, DeliveryStatus>()
     private val sentMessageIds = mutableSetOf<String>()
+    private val messageTimeline = mutableStateListOf<MessageWithStatus>()
     private val pipelineEventSink = PipelineEventSink { event ->
         benchmarkStore?.add(
             metric = "pipeline_${event.name}_ms",
@@ -95,10 +106,37 @@ class CommunicationActivity : ComponentActivity() {
         transport = BluetoothClassicTransport(this)
         playbackRouter = PlaybackRouter(this)
         
-        // Set up message listening
+        // Set up reliable message client
+        reliableMessageClient = ReliableMessageClient(
+            transport = transport!!,
+            scope = lifecycleScope,
+            onMessage = { payload -> handleIncomingMessage(payload) },
+            onMetric = { metric -> 
+                // Update delivery status to DELIVERED
+                messageDeliveryStatus[metric.messageId] = DeliveryStatus.DELIVERED
+                
+                // Update message timeline status
+                val messageIndex = messageTimeline.indexOfFirst { it.id == metric.messageId }
+                if (messageIndex >= 0) {
+                    val message = messageTimeline[messageIndex]
+                    messageTimeline[messageIndex] = message.copy(status = DeliveryStatus.DELIVERED)
+                }
+                
+                alertsAndMeasurements.recordMessageLatency(metric.messageId.hashCode().toLong(), metric.ackRttMillis)
+            }
+        )
+        
+        // Start reliable message client
+        reliableMessageClient?.start()
+        
+        // Set up message listening for non-reliable messages (ACK, PING)
         lifecycleScope.launch {
             transport?.incoming?.collect { payload ->
-                handleIncomingMessage(payload)
+                // ReliableMessageClient handles SPEECH/ALERT messages
+                // Only handle ACK and PING here for direct transport feedback
+                if (payload.type == MessageType.ACK || payload.type == MessageType.PING) {
+                    // ACK and PING are handled by ReliableMessageClient internally
+                }
             }
         }
         
@@ -124,6 +162,7 @@ class CommunicationActivity : ComponentActivity() {
         var showAlertPresets by remember { mutableStateOf(false) }
         var showConnectionDialog by remember { mutableStateOf(false) }
         var showMeasurementsDashboard by remember { mutableStateOf(false) }
+        var showMessageTimeline by remember { mutableStateOf(false) }
         var statusMessage by remember { mutableStateOf("Ready") }
         
         Column(
@@ -190,6 +229,9 @@ class CommunicationActivity : ComponentActivity() {
                             }
                             TextButton(onClick = { showMeasurementsDashboard = true }) {
                                 Text("Stats", style = MaterialTheme.typography.bodySmall)
+                            }
+                            TextButton(onClick = { showMessageTimeline = true }) {
+                                Text("Msgs", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -353,6 +395,13 @@ class CommunicationActivity : ComponentActivity() {
             MeasurementsDashboardDialog(
                 measurements = alertsAndMeasurements,
                 onDismiss = { showMeasurementsDashboard = false }
+            )
+        }
+        
+        if (showMessageTimeline) {
+            MessageTimelineDialog(
+                messages = messageTimeline,
+                onDismiss = { showMessageTimeline = false }
             )
         }
     }
@@ -552,30 +601,49 @@ class CommunicationActivity : ComponentActivity() {
     private fun sendAlert(alertText: String) {
         lifecycleScope.launch {
             val sendStartTime = System.currentTimeMillis()
-            val messageId = UUID.randomUUID().toString()
-            
-            val payload = MessagePayload(
-                type = MessageType.ALERT,
-                messageId = messageId,
-                seq = System.currentTimeMillis(),
-                senderId = getLocalSenderId(),
-                sentAtEpochMs = System.currentTimeMillis(),
-                text = alertText,
-                langCode = currentLanguage
-            )
             
             // Record message send
             alertsAndMeasurements.recordMessage(MessageDirection.SENT, alertText.length)
             
             try {
-                transport?.send(payload)
+                val client = reliableMessageClient
+                if (client == null) {
+                    showError("Not connected - alert not sent")
+                    return@launch
+                }
                 
-                // Simulate delivery confirmation for measurement
-                val deliveryLatency = System.currentTimeMillis() - sendStartTime
-                alertsAndMeasurements.recordMessageLatency(messageId.hashCode().toLong(), deliveryLatency)
+                // Send through ReliableMessageClient for ACK + retry (alerts retry until ACKed)
+                val messageId = client.sendText(alertText, currentLanguage, alert = true)
+                
+                // Set initial status to SENDING
+                messageDeliveryStatus[messageId] = DeliveryStatus.SENDING
+                
+                // Add to message timeline
+                messageTimeline.add(0, MessageWithStatus(
+                    id = messageId,
+                    text = "🚨 $alertText",
+                    timestamp = System.currentTimeMillis(),
+                    type = "SENT",
+                    status = DeliveryStatus.SENDING
+                ))
+                
+                // Alerts have longer timeout since they retry until ACKed
+                lifecycleScope.launch {
+                    delay(30_000) // 30 seconds timeout for alerts
+                    if (messageDeliveryStatus[messageId] == DeliveryStatus.SENDING) {
+                        messageDeliveryStatus[messageId] = DeliveryStatus.FAILED
+                        
+                        // Update message timeline status
+                        val messageIndex = messageTimeline.indexOfFirst { it.id == messageId }
+                        if (messageIndex >= 0) {
+                            val message = messageTimeline[messageIndex]
+                            messageTimeline[messageIndex] = message.copy(status = DeliveryStatus.FAILED)
+                        }
+                    }
+                }
                 
             } catch (e: Exception) {
-                // Record send failure
+                showError("Failed to send alert: ${e.message}")
                 alertsAndMeasurements.recordConnectionFailure("Unknown", e.message ?: "Send failed")
             }
         }
@@ -590,6 +658,24 @@ class CommunicationActivity : ComponentActivity() {
         
         when (payload.type) {
             MessageType.SPEECH, MessageType.ALERT -> {
+                // Send ACK for received SPEECH/ALERT messages
+                lifecycleScope.launch {
+                    try {
+                        val ackPayload = MessagePayload(
+                            type = MessageType.ACK,
+                            messageId = UUID.randomUUID().toString(),
+                            ackForMessageId = payload.messageId,
+                            seq = System.currentTimeMillis(),
+                            senderId = getLocalSenderId(),
+                            sentAtEpochMs = System.currentTimeMillis()
+                        )
+                        transport?.send(ackPayload)
+                    } catch (e: Exception) {
+                        // Log but don't fail message processing if ACK fails
+                        android.util.Log.w("iTantra", "Failed to send ACK for ${payload.messageId}: ${e.message}")
+                    }
+                }
+                
                 // Pipeline timing: Message received
                 pipelineEventSink.emit(PipelineEvent(
                     "message_received",
@@ -610,11 +696,22 @@ class CommunicationActivity : ComponentActivity() {
                     return
                 }
                 
+                // Add received message to timeline
+                messageTimeline.add(0, MessageWithStatus(
+                    id = payload.messageId,
+                    text = if (payload.type == MessageType.ALERT) "🚨 ${payload.text}" else payload.text ?: "",
+                    timestamp = System.currentTimeMillis(),
+                    type = "RECEIVED",
+                    status = null // No delivery status for received messages
+                ))
+                
                 messageQueue.add(payload.messageId to payload)
                 val transition = conversationMachine.incoming(payload.messageId, kind)
                 executeCommands(transition.commands)
             }
-            else -> { /* ACK and PING handled by transport */ }
+            else -> { 
+                // ACK and PING handled by ReliableMessageClient automatically
+            }
         }
     }
     
@@ -846,13 +943,11 @@ class CommunicationActivity : ComponentActivity() {
     private fun sendSpeechMessage(text: String) {
         lifecycleScope.launch {
             val sendStartTime = System.currentTimeMillis()
-            val messageId = UUID.randomUUID().toString()
             
             // Pipeline timing: Message send start
             pipelineEventSink.emit(PipelineEvent(
                 "message_send_start",
                 android.os.SystemClock.elapsedRealtimeNanos(),
-                messageId = messageId,
                 details = mapOf(
                     "type" to "SPEECH",
                     "text_length" to text.length.toString(),
@@ -860,21 +955,45 @@ class CommunicationActivity : ComponentActivity() {
                 )
             ))
             
-            val payload = MessagePayload(
-                type = MessageType.SPEECH,
-                messageId = messageId,
-                seq = System.currentTimeMillis(),
-                senderId = getLocalSenderId(),
-                sentAtEpochMs = System.currentTimeMillis(),
-                text = text,
-                langCode = currentLanguage
-            )
-            
             // Record message send
             alertsAndMeasurements.recordMessage(MessageDirection.SENT, text.length)
             
             try {
-                transport?.send(payload)
+                val client = reliableMessageClient
+                if (client == null) {
+                    showError("Not connected - message not sent")
+                    return@launch
+                }
+                
+                // Send through ReliableMessageClient for ACK + retry
+                val messageId = client.sendText(text, currentLanguage, alert = false)
+                
+                // Set initial status to SENDING
+                messageDeliveryStatus[messageId] = DeliveryStatus.SENDING
+                
+                // Add to message timeline
+                messageTimeline.add(0, MessageWithStatus(
+                    id = messageId,
+                    text = text,
+                    timestamp = System.currentTimeMillis(),
+                    type = "SENT",
+                    status = DeliveryStatus.SENDING
+                ))
+                
+                // Set timeout to mark as FAILED if no ACK received (for SPEECH messages - 10 seconds)
+                lifecycleScope.launch {
+                    delay(10_000) // 10 seconds timeout
+                    if (messageDeliveryStatus[messageId] == DeliveryStatus.SENDING) {
+                        messageDeliveryStatus[messageId] = DeliveryStatus.FAILED
+                        
+                        // Update message timeline status
+                        val messageIndex = messageTimeline.indexOfFirst { it.id == messageId }
+                        if (messageIndex >= 0) {
+                            val message = messageTimeline[messageIndex]
+                            messageTimeline[messageIndex] = message.copy(status = DeliveryStatus.FAILED)
+                        }
+                    }
+                }
                 
                 // Pipeline timing: Message sent to transport
                 pipelineEventSink.emit(PipelineEvent(
@@ -882,10 +1001,6 @@ class CommunicationActivity : ComponentActivity() {
                     android.os.SystemClock.elapsedRealtimeNanos(),
                     messageId = messageId
                 ))
-                
-                // Record delivery latency
-                val deliveryLatency = System.currentTimeMillis() - sendStartTime
-                alertsAndMeasurements.recordMessageLatency(messageId.hashCode().toLong(), deliveryLatency)
                 
             } catch (e: Exception) {
                 showError("Failed to send message: ${e.message}")
@@ -971,6 +1086,89 @@ private fun MeasurementsDashboardDialog(
                 measurements.resetMeasurements()
             }) {
                 Text("Reset")
+            }
+        }
+    )
+}
+
+@Composable
+private fun MessageTimelineDialog(
+    messages: List<MessageWithStatus>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Message Timeline") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.height(400.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (messages.isEmpty()) {
+                    item {
+                        Text("No messages yet", style = MaterialTheme.typography.bodyMedium)
+                    }
+                } else {
+                    items(messages) { message ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (message.type == "SENT") 
+                                    MaterialTheme.colorScheme.primaryContainer 
+                                else 
+                                    MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        message.type,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    
+                                    if (message.status != null) {
+                                        val (statusText, statusColor) = when (message.status) {
+                                            DeliveryStatus.SENDING -> "Sending..." to Color(0xFFFF9800) // Orange
+                                            DeliveryStatus.DELIVERED -> "✓" to Color(0xFF4CAF50) // Green  
+                                            DeliveryStatus.FAILED -> "Failed" to Color(0xFFF44336) // Red
+                                        }
+                                        Text(
+                                            statusText,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = statusColor
+                                        )
+                                    }
+                                }
+                                
+                                Text(
+                                    message.text,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                                
+                                Text(
+                                    java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
+                                        .format(java.util.Date(message.timestamp)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
             }
         }
     )

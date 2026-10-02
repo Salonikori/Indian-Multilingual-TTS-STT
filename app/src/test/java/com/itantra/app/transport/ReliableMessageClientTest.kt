@@ -24,6 +24,7 @@ class ReliableMessageClientTest {
     private lateinit var fakeTransport: FakeTransport
     private lateinit var testScope: TestScope
     private lateinit var client: ReliableMessageClient
+    private lateinit var clientJob: Job
     private val receivedMessages = mutableListOf<MessagePayload>()
     private val deliveryMetrics = mutableListOf<DeliveryMetric>()
     
@@ -37,11 +38,12 @@ class ReliableMessageClientTest {
             onMessage = { receivedMessages.add(it) },
             onMetric = { deliveryMetrics.add(it) }
         )
-        client.start()
+        clientJob = client.start()
     }
     
     @After
     fun cleanup() {
+        clientJob.cancel()
         testScope.cancel()
     }
     
