@@ -29,6 +29,11 @@ object ModelFiles {
                 File(sttModel.parentFile, "joiner.int8.onnx"),
                 sttTokens
             )
+            SttArchitecture.WHISPER -> listOf(
+                sttModel, // encoder.int8.onnx
+                File(sttModel.parentFile, "decoder.int8.onnx"),
+                sttTokens
+            )
         }
         return (sttFiles + listOf(ttsModel, ttsTokens)).all { it.isFile } && ttsData.isDirectory
     }

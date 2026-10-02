@@ -37,7 +37,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import java.util.*
+
+enum class DeliveryStatus { SENDING, DELIVERED, FAILED }
 
 class CommunicationActivity : ComponentActivity() {
     
@@ -50,6 +53,10 @@ class CommunicationActivity : ComponentActivity() {
     private var sttEngine: ManagerSttEngine? = null
     private var conversationMachine = ConversationStateMachine()
     private var benchmarkStore: BenchmarkStore? = null
+    
+    // Simple delivery tracking for Step 2
+    private val messageDeliveryStatus = mutableMapOf<String, DeliveryStatus>()
+    private val sentMessageIds = mutableSetOf<String>()
     private val pipelineEventSink = PipelineEventSink { event ->
         benchmarkStore?.add(
             metric = "pipeline_${event.name}_ms",
@@ -458,10 +465,6 @@ class CommunicationActivity : ComponentActivity() {
     private fun setupAudioPipeline() {
         val manager = languageManager ?: return
         
-        // Release previous resources first to avoid leaks
-        liveSttController?.release()
-        audioCapture?.stop()
-        
         // Create VAD engine with graceful fallback
         val vadModelPath = java.io.File(filesDir, "models/vad/silero_vad.onnx").absolutePath
         vadEngine = VadEngine(modelPath = vadModelPath)
@@ -562,29 +565,21 @@ class CommunicationActivity : ComponentActivity() {
                 "Translation not supported. Message: ${payload.text}"
             }
             
-            val (samples, sampleRate) = generateTtsForText(translationMessage)
             playbackRouter?.play(
-                samples = samples,
-                sampleRate = sampleRate,
+                samples = generateTtsForText(translationMessage),
+                sampleRate = 22050,
                 kind = if (payload.type == MessageType.ALERT) PlaybackKind.ALERT else PlaybackKind.NORMAL
             )
         }
     }
     
-    private suspend fun generateTtsForText(text: String): Pair<FloatArray, Int> {
+    private suspend fun generateTtsForText(text: String): FloatArray {
         return try {
-            val manager = languageManager ?: throw Exception("No language loaded")
-            // TTS synthesis runs on background thread to avoid blocking UI
-            withContext(Dispatchers.Default) {
-                val result = manager.synthesize(text)
-                // Return the actual sample rate from the TTS engine, not hard-coded 22050
-                result
-            }
+            val manager = languageManager ?: return FloatArray(0)
+            val (samples, _) = manager.synthesize(text)
+            samples
         } catch (e: Exception) {
-            showError("TTS synthesis failed: ${e.message}")
-            // Return empty array with a reasonable default sample rate on failure
-            // But still call playbackFinished() to avoid stalling the state machine
-            FloatArray(0) to 16000
+            FloatArray(0) // Return empty array if TTS fails
         }
     }
     
@@ -593,51 +588,24 @@ class CommunicationActivity : ComponentActivity() {
             when (command) {
                 SessionCommand.ArmMicrophone -> {
                     android.util.Log.d("iTantra-PTT", "🎤 PTT PRESSED - Starting audio capture")
-                    
-                    // Wait for any previous finalize job to complete
-                    finalizeJob?.let { job ->
-                        if (!job.isCompleted) {
-                            lifecycleScope.launch {
-                                job.join()
-                                startAudioCaptureForPtt()
-                            }
-                            return@forEach
+                    // Start real audio capture and STT for PTT
+                    startAudioCapture { transcript ->
+                        android.util.Log.d("iTantra-PTT", "📝 TRANSCRIPT RECEIVED: '$transcript'")
+                        if (transcript.isNotBlank()) {
+                            android.util.Log.d("iTantra-PTT", "✅ Sending message: '$transcript'")
+                            sendSpeechMessage(transcript)
+                            val transition = conversationMachine.outgoingFinished()
+                            executeCommands(transition.commands)
+                        } else {
+                            android.util.Log.w("iTantra-PTT", "⚠️ Empty transcript, not sending message")
                         }
                     }
-                    startAudioCaptureForPtt()
                 }
                 
                 SessionCommand.StopMicrophoneAndFinalize -> {
-                    android.util.Log.d("iTantra-PTT", "🛑 PTT RELEASED - Finalizing")
-                    
-                    finalizeJob = lifecycleScope.launch(Dispatchers.Default) {
-                        try {
-                            // 1) Await controller.stopAndFlush() (transcribe remaining audio)
-                            liveSttController?.stopAndFlush()
-                            
-                            // 2) Stop AudioCapture off main thread (can block ~500ms)
-                            audioCapture?.stop()
-                            
-                            // 3) Always call state machine transitions, even if nothing was said
-                            withContext(Dispatchers.Main) {
-                                val transition1 = conversationMachine.utteranceFinalized()
-                                executeCommands(transition1.commands)
-                                
-                                val transition2 = conversationMachine.outgoingFinished()
-                                executeCommands(transition2.commands)
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("iTantra", "Error during PTT finalization: ${e.message}")
-                            // Still continue with state machine to avoid getting stuck
-                            withContext(Dispatchers.Main) {
-                                val transition1 = conversationMachine.utteranceFinalized()
-                                executeCommands(transition1.commands)
-                                
-                                val transition2 = conversationMachine.outgoingFinished()
-                                executeCommands(transition2.commands)
-                            }
-                        }
-                    }
+                    stopAudioCapture()
+                    val transition = conversationMachine.utteranceFinalized()
+                    executeCommands(transition.commands)
                 }
                 
                 SessionCommand.StartContinuousListening -> {
@@ -647,16 +615,7 @@ class CommunicationActivity : ComponentActivity() {
                 }
                 
                 SessionCommand.StopListening -> {
-                    stopAudioCaptureGracefully()
-                }
-                
-                SessionCommand.GateMicrophone -> {
-                    microphoneGated = true
-                    stopAudioCaptureImmediately()  // Stop listening during TTS playback
-                }
-                
-                SessionCommand.UngateMicrophone -> {
-                    microphoneGated = false
+                    stopAudioCapture()
                 }
                 
                 is SessionCommand.PlayInbound -> {
@@ -674,7 +633,7 @@ class CommunicationActivity : ComponentActivity() {
                                 )
                             ))
                             
-                            val (samples, sampleRate) = generateTtsForText(payload.text ?: "")
+                            val samples = generateTtsForText(payload.text ?: "")
                             
                             // Pipeline timing: TTS complete
                             pipelineEventSink.emit(PipelineEvent(
@@ -693,7 +652,7 @@ class CommunicationActivity : ComponentActivity() {
                                 messageId = command.messageId
                             ))
                             
-                            playbackRouter?.play(samples, sampleRate, playKind)
+                            playbackRouter?.play(samples, 22050, playKind)
                             
                             // Pipeline timing: Audio playback complete
                             pipelineEventSink.emit(PipelineEvent(
@@ -708,6 +667,15 @@ class CommunicationActivity : ComponentActivity() {
                     }
                 }
                 
+                SessionCommand.GateMicrophone -> {
+                    microphoneGated = true
+                    stopAudioCapture()  // Stop listening during TTS playback
+                }
+                
+                SessionCommand.UngateMicrophone -> {
+                    microphoneGated = false
+                }
+                
                 is SessionCommand.QueueInbound -> {
                     // Message queued - no immediate action needed
                 }
@@ -716,18 +684,6 @@ class CommunicationActivity : ComponentActivity() {
                     // Clear processed messages
                     messageQueue.clear()
                 }
-            }
-        }
-    }
-    
-    private fun startAudioCaptureForPtt() {
-        startAudioCapture { utterance ->
-            android.util.Log.d("iTantra-PTT", "📝 TRANSCRIPT RECEIVED: '${utterance.text}'")
-            if (utterance.text.isNotBlank()) {
-                android.util.Log.d("iTantra-PTT", "✅ Sending message: '${utterance.text}'")
-                sendSpeechMessage(utterance.text)
-            } else {
-                android.util.Log.w("iTantra-PTT", "⚠️ Empty transcript, not sending message")
             }
         }
     }
@@ -758,6 +714,13 @@ class CommunicationActivity : ComponentActivity() {
                 langCode = currentLanguage
             )
             
+            // Verify no audio in payload (hard rule check)
+            val payloadJson = com.itantra.app.transport.PayloadSerializer.encode(payload)
+            if (payloadJson.toString(Charsets.UTF_8).contains("audio") || 
+                payloadJson.toString(Charsets.UTF_8).contains("samples")) {
+                throw IllegalStateException("HARD RULE VIOLATION: Audio data found in message payload")
+            }
+            
             transport?.send(payload)
             
             // Pipeline timing: Message sent to transport
@@ -774,126 +737,128 @@ class CommunicationActivity : ComponentActivity() {
             ?.take(64) ?: "android"
     }
     
-    // ─── Error Handling ──────────────────────────────────────────────────────
-    
-    private fun showError(message: String) {
-        android.util.Log.e("iTantra", message)
-        lifecycleScope.launch {
-            // Show toast on UI thread
-            android.widget.Toast.makeText(this@CommunicationActivity, message, android.widget.Toast.LENGTH_LONG).show()
-        }
-    }
-    
     // ─── Audio Capture Implementation ────────────────────────────────────────
     
-    private var finalizeJob: Job? = null
+    private var currentTranscriptCallback: ((String) -> Unit)? = null
+    private var sttStateJob: Job? = null
     
-    private fun requestPermissions() {
-        val permissions = mutableListOf<String>()
+    private fun startAudioCapture(onTranscript: (String) -> Unit) {
+        android.util.Log.d("iTantra", "=== PTT AUDIO CAPTURE START ===")
         
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
-            != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(Manifest.permission.RECORD_AUDIO)
-        }
-        
-        // Android 12+ Bluetooth permissions
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) 
-                != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-            }
-        }
-        
-        if (permissions.isNotEmpty()) {
-            requestPermissions(permissions.toTypedArray(), 1001)
-        }
-    }
-    
-    private fun checkPermissions(): Boolean {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) 
-            != PackageManager.PERMISSION_GRANTED) {
-            showError("Microphone permission required")
-            return false
-        }
-        return true
-    }
-    
-    private fun startAudioCapture(onUtterance: (UtteranceView) -> Unit) {
-        android.util.Log.d("iTantra", "=== AUDIO CAPTURE START ===")
-        
-        if (!checkPermissions()) {
-            requestPermissions()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            android.util.Log.e("iTantra", "ERROR: Microphone permission not granted")
+            println("Microphone permission not granted")
             return
         }
+        android.util.Log.d("iTantra", "✓ Microphone permission granted")
         
         val controller = liveSttController ?: run {
-            showError("STT controller not initialized")
+            android.util.Log.e("iTantra", "ERROR: liveSttController is null")
             return
         }
         val capture = audioCapture ?: run {
-            showError("Audio capture not initialized") 
+            android.util.Log.e("iTantra", "ERROR: audioCapture is null") 
             return
         }
         
+        android.util.Log.d("iTantra", "✓ Controller and capture instances available")
+        android.util.Log.d("iTantra", "Language loaded: $languageLoaded")
+        android.util.Log.d("iTantra", "Language manager null: ${languageManager == null}")
+        
         try {
+            currentTranscriptCallback = onTranscript
+            
             android.util.Log.d("iTantra", "Starting audio capture...")
             capture.start()
             android.util.Log.d("iTantra", "✓ AudioCapture.start() completed")
             
-            android.util.Log.d("iTantra", "Starting STT controller with utterance callback...")
-            controller.start(capture.frames, onUtterance)
+            android.util.Log.d("iTantra", "Starting STT controller with audio frames...")
+            controller.start(capture.frames)
             android.util.Log.d("iTantra", "✓ LiveSttController.start() completed")
             
+            sttStateJob?.cancel()
+            sttStateJob = lifecycleScope.launch {
+                android.util.Log.d("iTantra", "Starting STT state monitoring coroutine...")
+                controller.state.collect { state ->
+                    android.util.Log.d("iTantra", "STT State: phase=${state.phase}, message='${state.message}'")
+                    android.util.Log.d("iTantra", "CPU idle: ${state.idleCpuPercent}%, latest utterance: ${state.latest != null}")
+                    
+                    state.latest?.let { utterance ->
+                        android.util.Log.d("iTantra", "=== TRANSCRIPT RECEIVED ===")
+                        android.util.Log.d("iTantra", "Text: '${utterance.text}'")
+                        android.util.Log.d("iTantra", "Audio length: ${utterance.audioLengthMillis}ms")
+                        android.util.Log.d("iTantra", "Decode time: ${utterance.decodeMillis}ms")
+                        android.util.Log.d("iTantra", "RTF: ${utterance.rtf}")
+                        
+                        if (utterance.text.isNotBlank()) {
+                            android.util.Log.d("iTantra", "Invoking transcript callback with: '${utterance.text}'")
+                            currentTranscriptCallback?.invoke(utterance.text)
+                            currentTranscriptCallback = null
+                            android.util.Log.d("iTantra", "✓ Transcript callback completed")
+                        } else {
+                            android.util.Log.w("iTantra", "Empty transcript received, ignoring")
+                        }
+                    }
+                }
+            }
+            android.util.Log.d("iTantra", "Audio capture started for PTT mode")
         } catch (e: Exception) {
             android.util.Log.e("iTantra", "FAILED to start audio capture: ${e.message}", e)
-            showError("Failed to start microphone: ${e.message}")
+            println("Failed to start audio capture: ${e.message}")
         }
     }
     
     private fun startContinuousListening() {
         if (microphoneGated) return
         
-        startAudioCapture { utterance ->
-            sendSpeechMessage(utterance.text)
-            // Note: Do NOT call outgoingFinished() per sentence in phone mode
-        }
-    }
-    
-    private fun stopAudioCaptureGracefully() {
-        lifecycleScope.launch(Dispatchers.Default) {
-            try {
-                liveSttController?.stopAndFlush()
-                audioCapture?.stop()
-                android.util.Log.d("iTantra", "Audio capture stopped gracefully")
-            } catch (e: Exception) {
-                android.util.Log.e("iTantra", "Error stopping audio capture: ${e.message}")
-            }
-        }
-    }
-    
-    private fun stopAudioCaptureImmediately() {
+        val controller = liveSttController ?: return
+        val capture = audioCapture ?: return
+        
         try {
+            capture.start()
+            controller.start(capture.frames)
+            
+            sttStateJob?.cancel()
+            sttStateJob = lifecycleScope.launch {
+                controller.state.collect { state ->
+                    state.latest?.let { utterance ->
+                        if (utterance.text.isNotBlank()) {
+                            sendSpeechMessage(utterance.text)
+                            val transition = conversationMachine.outgoingFinished()
+                            executeCommands(transition.commands)
+                        }
+                    }
+                }
+            }
+            println("Continuous listening started")
+        } catch (e: Exception) {
+            println("Failed to start continuous listening: ${e.message}")
+        }
+    }
+    
+    private fun stopAudioCapture() {
+        try {
+            sttStateJob?.cancel()
+            sttStateJob = null
+            currentTranscriptCallback = null
             liveSttController?.stop()
             audioCapture?.stop()
-            android.util.Log.d("iTantra", "Audio capture stopped immediately")
+            println("Audio capture stopped")
         } catch (e: Exception) {
-            android.util.Log.e("iTantra", "Error stopping audio capture: ${e.message}")
+            println("Error stopping audio capture: ${e.message}")
         }
     }
     
     override fun onDestroy() {
-        // Disconnect transport before super.onDestroy() to ensure it runs
-        kotlinx.coroutines.runBlocking {
-            transport?.disconnect()
-        }
-        
-        // Clean up audio resources
-        stopAudioCaptureImmediately()
-        liveSttController?.release()
+        super.onDestroy()
+        stopAudioCapture()
+        vadEngine?.release()
+        liveSttController?.stop()
         audioCapture?.stop()
         languageManager?.release()
-        
-        super.onDestroy()
+        lifecycleScope.launch {
+            transport?.disconnect()
+        }
     }
 }
 

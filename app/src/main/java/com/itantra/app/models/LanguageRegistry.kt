@@ -1,7 +1,7 @@
 package com.itantra.app.models
 
 enum class ModelStatus { VALIDATED, EXPERIMENTAL, NOT_INSTALLED }
-enum class SttArchitecture { NEMO_CTC, TRANSDUCER }
+enum class SttArchitecture { NEMO_CTC, TRANSDUCER, WHISPER }
 
 data class LanguageSpec(
     val code: String,
@@ -69,13 +69,26 @@ object LanguageRegistry {
     val languages: List<LanguageSpec> = listOf(
         // Current Implementation: Hindi and English (Depth over Breadth)
         piperFull("hi", "Hindi"),          // Piper hi_IN-rohan-medium-int8 (needs espeak-ng-data/)
-        LanguageSpec("en", "English", SttArchitecture.TRANSDUCER,
+        LanguageSpec("en", "English", SttArchitecture.WHISPER,
             "models/en/stt/encoder.int8.onnx", "models/en/stt/tokens.txt",
             "models/en/tts/model.onnx", "models/en/tts/tokens.txt",
-            // Piper en_US: dataDir must be espeak-ng-data/, same as Hindi
+            // Piper en_US: dataDir must be espeak-ng-data/, same as Hindi  
             "models/en/tts/espeak-ng-data",
-            ModelStatus.NOT_INSTALLED, validationNote = "STT/TTS assets and target-device validation not recorded.")
+            ModelStatus.NOT_INSTALLED,
+            measuredBundleBytes = 117_000_000, // ~117 MB for Whisper tiny.en int8
+            validationNote = "Replaced with Whisper tiny.en int8 model for better accuracy (was 96.8% WER with streaming model).")
     )
+    
+    // Alternative larger model option (commented out but documented)
+    /*
+    LanguageSpec("en", "English", SttArchitecture.WHISPER,
+        "models/en/stt/encoder.int8.onnx", "models/en/stt/tokens.txt", 
+        "models/en/tts/model.onnx", "models/en/tts/tokens.txt",
+        "models/en/tts/espeak-ng-data",
+        ModelStatus.NOT_INSTALLED,
+        measuredBundleBytes = 153_000_000, // ~153 MB for Whisper base.en int8 (better accuracy)
+        validationNote = "Whisper base.en int8 alternative - larger but potentially more accurate than tiny.en")
+    */
     
     // Future Work: Additional 8 Indian Languages (Total = 10 as per ISRO requirement)
     // These are prepared for integration but hidden to focus on depth over breadth

@@ -6,6 +6,7 @@ import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTransducerModelConfig
 import com.k2fsa.sherpa.onnx.OfflineNemoEncDecCtcModelConfig
+import com.k2fsa.sherpa.onnx.OfflineWhisperModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
@@ -36,9 +37,17 @@ class LanguageManager(private val context: Context) {
                 add(sttTokens)
                 add(ttsModel)
                 add(ttsTokens)
-                if (spec.sttArchitecture == SttArchitecture.TRANSDUCER) {
-                    add(File(sttModel.parentFile, "decoder.int8.onnx"))
-                    add(File(sttModel.parentFile, "joiner.int8.onnx"))
+                when (spec.sttArchitecture) {
+                    SttArchitecture.TRANSDUCER -> {
+                        add(File(sttModel.parentFile, "decoder.int8.onnx"))
+                        add(File(sttModel.parentFile, "joiner.int8.onnx"))
+                    }
+                    SttArchitecture.WHISPER -> {
+                        add(File(sttModel.parentFile, "decoder.int8.onnx"))
+                    }
+                    SttArchitecture.NEMO_CTC -> {
+                        // No additional files needed
+                    }
                 }
             }
             
@@ -74,6 +83,11 @@ class LanguageManager(private val context: Context) {
                         nemo = if (spec.sttArchitecture == SttArchitecture.NEMO_CTC)
                             OfflineNemoEncDecCtcModelConfig(model = sttModel.absolutePath)
                             else OfflineNemoEncDecCtcModelConfig(),
+                        whisper = if (spec.sttArchitecture == SttArchitecture.WHISPER)
+                            OfflineWhisperModelConfig(
+                                encoder = sttModel.absolutePath,
+                                decoder = File(sttModel.parentFile, "decoder.int8.onnx").absolutePath
+                            ) else OfflineWhisperModelConfig(),
                         tokens = sttTokens.absolutePath,
                         numThreads = 2,
                         provider = "cpu",
