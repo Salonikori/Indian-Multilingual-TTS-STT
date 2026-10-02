@@ -10,7 +10,7 @@ Based on actual tts-models release contents (checked 2026-09-29):
 - English:  vits-piper-en_US-lessac-medium-int8  (Piper, ~21 MB, MIT)
 - VAD:      silero_vad.onnx                      (Apache-2.0, 0.6 MB)
 
-Run from inside optional_model_manager/ with the venv active.
+Run from inside tools/ (moved from optional_model_manager/ per audit requirements).
 """
 from __future__ import annotations
 import hashlib, json, shutil, sys, tarfile

@@ -2,7 +2,7 @@
 """Re-download Piper TTS archives and extract them correctly.
 
 Fixes the case where espeak-ng-data ended up empty after a botched extraction.
-Run from inside optional_model_manager/ with the venv active.
+Run from inside tools/ (moved from optional_model_manager/ per audit requirements).
 """
 from __future__ import annotations
 import hashlib, json, shutil, tarfile, urllib.request

@@ -80,7 +80,7 @@ A community conversion candidate was found at:
 https://huggingface.co/parismitaglobalsolutions/indicconformer-sherpa-onnx
 Its model card documents Hindi plus other IndicConformer CTC language folders, and an English NeMo CTC model. It reports approximate sizes of ~190 MB per Indian-language model and ~170 MB for English, both over the 150 MB target. These are publisher estimates, not this lab's measured disk sizes. The model card attributes source licenses per family (AI4Bharat MIT; NVIDIA NeMo CC-BY-4.0), so preserve attribution and check exact revision/files before redistribution.
 
-Optional online model acquisition is isolated in `../optional_model_manager/download_candidates.py`. It is the only project component that calls the Hugging Face Hub. To run it, create a separate environment in that directory and install `requirements.txt`; then run `python download_candidates.py` only after reviewing the exact candidate and license. The inference scripts in this folder do not download anything.
+Optional online model acquisition is isolated in `../tools/download_candidates.py`. It is the only project component that calls the Hugging Face Hub. To run it, create a separate environment in that directory and install `requirements.txt`; then run `python download_candidates.py` only after reviewing the exact candidate and license. The inference scripts in this folder do not download anything.
 
 Smaller English candidate:
 https://huggingface.co/k2-fsa/sherpa-onnx-zipformer-gigaspeech-2023-12-12
