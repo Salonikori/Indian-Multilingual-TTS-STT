@@ -8,8 +8,9 @@ This directory contains development-time tools for downloading and preparing mod
 
 **`download_whisper_model.py`**
 - Downloads Whisper tiny.en INT8 model for English STT
-- Replaces previous streaming model that had 97% WER due to architecture mismatch  
-- Expected WER: <10% with proper offline Whisper configuration
+- Replaces previous streaming model that had 96.8% WER due to architecture mismatch  
+- Expected WER improvement: 96.8% → <10% with proper offline Whisper configuration
+- Status: Model download working, accuracy validation testing needed
 - Usage: `python tools/download_whisper_model.py`
 
 ### Dataset Preparation Tools
