@@ -21,9 +21,9 @@ This script demonstrates iTantra's **real, working voice communication system** 
 - [x] **Backup**: APK file ready for installation if needed
 
 ### Performance Data Ready
-- [x] **Hindi WER**: 64.9% corpus, 67.1% mean (30 real speech samples)
-- [x] **English WER**: 96.8% (model needs replacement - identified issue)
-- [x] **TTS RTF**: Hindi 0.598, English 0.461 (both real-time capable)
+- [x] **Hindi WER**: Not measured on real speech (synthetic corpus used)
+- [x] **English WER**: 96.8% on synthetic corpus (model needs replacement)
+- [x] **TTS RTF**: Hindi 0.598, English 0.461 (desktop measurements, not Android)
 - [x] **Device Specs**: Android 15, API 35, ARM64, 5.4GB RAM
 
 ## 🚀 **Live Demo Script**
@@ -63,7 +63,7 @@ This script demonstrates iTantra's **real, working voice communication system** 
 4. **Press synthesize** and play audio
 
 **Key Points**:
-- ✅ "RTF 0.598 - faster than real-time synthesis"
+- ✅ "RTF 0.598 - measured on desktop (Android performance unknown)"
 - ✅ "High quality male voice, locally processed"
 - ✅ "No internet required - perfect for emergency scenarios"
 
@@ -71,7 +71,7 @@ This script demonstrates iTantra's **real, working voice communication system** 
 
 ### **3. Hindi STT Demonstration (90 seconds)**
 
-> "Now speech recognition - we measured 64.9% WER on real speech clips."
+> "Now speech recognition - accuracy not yet measured on real human speech."
 
 **Actions**:
 1. **Navigate to STT test screen** (LiveSttActivity or test area)
@@ -82,8 +82,8 @@ This script demonstrates iTantra's **real, working voice communication system** 
 
 **Key Points**:
 - ✅ "Real-time streaming STT - processes as you speak"
-- ✅ "64.9% WER measured on 30 real utterances"
-- ✅ "Production-ready accuracy for emergency communication"
+- ✅ "WER testing planned - current measurements use synthetic audio only"
+- ✅ "Real human speech validation needed for production accuracy claims"
 
 ---
 
@@ -155,8 +155,8 @@ fun isSpeech(samples: FloatArray): Boolean {
 **Measured Results**:
 ```
 ✅ APK Size: 40.2 MB (actual measurement)
-✅ Hindi WER: 64.9% (30 real speech samples)  
-✅ TTS RTF: <1.0 (real-time synthesis Hindi 0.598, English 0.461)
+✅ Hindi WER: Not measured on real speech (synthetic corpus only)  
+⚠️ TTS RTF: <1.0 (desktop measurement, Android performance unknown)
 ✅ Storage: 296 MiB total (Hindi + English models)
 ✅ Device: Android 15, API 35, ARM64 validated
 ✅ Architecture: Professional-grade with proper error handling
@@ -198,7 +198,7 @@ fun isSpeech(samples: FloatArray): Boolean {
 
 ### If Audio Issues
 1. **Show text input/output** - demonstrate STT/TTS without audio
-2. **Explain measured RTF values** from test results
+2. **Explain desktop test limitations** - show proof of concept, Android validation pending
 3. **Focus on system architecture** and ISRO value proposition
 
 ### If Device Issues  
@@ -210,25 +210,33 @@ fun isSpeech(samples: FloatArray): Boolean {
 
 ### Measured Performance (Real Hardware)
 - **APK Size**: 40.2 MB (actual file size)
-- **Hindi WER**: 64.9% corpus (production-ready)
-- **TTS RTF**: Hindi 0.598, English 0.461 (real-time)
+- **Hindi WER**: Not measured on real speech (prototype stage)
+- **TTS RTF**: Hindi 0.598, English 0.461 (desktop only)
 - **Model Storage**: 296 MiB total (lightweight)
 - **Device**: Android 15, API 35, ARM64 (modern compatibility)
 
 ### ISRO Requirements Met
 - ✅ **Offline Operation**: No internet permissions
 - ✅ **Lightweight**: 40.2 MB APK vs typical GB-scale apps
-- ✅ **Low Latency**: <1.0 RTF TTS synthesis  
+- ✅ **Low Latency**: RTF measured on desktop (Android testing needed)  
 - ✅ **Emergency Ready**: Alert override system
 - ✅ **Scalable**: Architecture supports all 10 languages
 
 ## 🎯 **Questions & Answers Preparation**
 
+### ⚠️ **CRITICAL HONESTY: Measurement Limitations**
+
+**Be upfront about current limitations:**
+- WER measurements use synthetic TTS audio, not real human speech
+- RTF measurements from desktop only, Android performance unknown  
+- This is a functional prototype, not production-validated software
+- Claims are architectural validation, not performance guarantees
+
 **Q**: "Why only 2 languages instead of 10?"  
 **A**: "Depth over breadth. We deliver 2 fully working pipelines with real measurements vs 10 mock implementations. Our architecture scales - adding the remaining 8 languages requires only model deployment."
 
 **Q**: "What about English STT accuracy (96.8% WER)?"  
-**A**: "We identified the issue - wrong model selection. The Hindi pipeline (64.9% WER) proves our architecture works. English model replacement is straightforward."
+**A**: "We identified the issue - wrong model selection plus synthetic test data. Our architecture shows promise but needs real-speech validation and English model replacement."
 
 **Q**: "How does this help ISRO missions?"  
 **A**: "Three ways: 1) Emergency communication when networks fail, 2) Multilingual mission control coordination, 3) Low-bandwidth satellite link optimization through text-only transport."
@@ -245,7 +253,8 @@ fun isSpeech(samples: FloatArray): Boolean {
 
 - [x] **Show working TTS** in Hindi with audio output
 - [x] **Demonstrate STT** with real-time transcription  
-- [x] **Present real measurements** (40.2 MB APK, 64.9% WER, RTF values)
+- [x] **Present architecture validation** (40.2 MB APK, system integration)
+- [x] **Explain testing limitations** (synthetic corpus, desktop measurements)
 - [x] **Explain ISRO value** (offline, emergency, low-bandwidth)
 - [x] **Highlight implementation quality** (professional architecture, error handling, testing)
 - [x] **Show scalability** (2 working → 10 languages with clean architecture)

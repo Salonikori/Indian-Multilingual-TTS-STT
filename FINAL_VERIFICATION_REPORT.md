@@ -19,7 +19,7 @@
 ### ✅ STEP 3: Replace English STT model
 - **Status**: Completed and committed (5a91f73)  
 - **Key changes**: Whisper tiny.en INT8 configuration, fixed file mappings
-- **Verification**: Model configuration updated, expected WER improvement 96.8% → <10%
+- **Verification**: Model configuration updated, synthetic WER tests show improvement needed
 
 ### ✅ STEP 4: Create real-speech WER test set
 - **Status**: Completed and committed (b4c9889)
@@ -107,15 +107,15 @@ aec79a5 STEP 1: Fix push-to-talk and pipeline in CommunicationActivity
 ## Current Prototype Status
 
 ### ✅ Functional Components
-- **Hindi TTS**: RTF 0.598, streaming capable, production quality
-- **English TTS**: RTF 0.461, streaming capable, production quality  
+- **Hindi TTS**: RTF 0.598 on desktop (Android performance unknown), streaming capable
+- **English TTS**: RTF 0.461 on desktop (Android performance unknown), streaming capable  
 - **Bluetooth Transport**: Text-based, reliable delivery with ACK/retry
 - **Push-to-Talk**: Working callback-based implementation
 - **Alert System**: Priority routing, USAGE_ALARM, exclusive focus
 - **Offline Operation**: Zero internet dependencies after model installation
 
 ### ⚠️ Known Limitations (Documented)
-- **Hindi STT**: 64.9% WER (needs improvement for production use)
+- **Hindi STT**: WER measured on synthetic audio only (real speech validation needed)
 - **English STT**: Model replaced, validation testing needed  
 - **Two-device testing**: End-to-end validation pending
 - **Language coverage**: 2 of 10 required languages implemented

@@ -1,6 +1,17 @@
 # iTantra Deployment Checklist ✅
 
-**Status**: Production Ready (Hindi), English Model Fix Required  
+## ⚠️ **DISCLAIMER: Measurement Validity**
+
+**This prototype has NOT been validated with real human speech or Android device performance measurements.**
+
+- **WER Claims**: All percentages (64.9%, 96.8%) are from synthetic TTS-generated audio only
+- **RTF Claims**: All timing values (0.598, 0.461) are from desktop Windows testing only  
+- **Production Readiness**: This demonstrates system architecture, not validated performance
+- **Real Validation**: Human speech corpus and Android device testing still required
+
+---
+
+**Status**: Functional Prototype (Validation Required)  
 **Tested On**: 23076PC4BI (Android 15, API 35, ARM64)  
 **Validation Date**: September 30, 2026  
 
@@ -15,11 +26,11 @@
 
 ### ✅ **Performance Validation**
 - [x] **APK Size**: 40.2 MB (measured) ✅
-- [x] **Hindi STT**: 64.9% WER (production ready) ✅
-- [x] **Hindi TTS**: RTF 0.598 (real-time capable) ✅
-- [x] **English TTS**: RTF 0.461 (real-time capable) ✅
+- [x] **Hindi STT**: Not measured on real speech (synthetic corpus only) ⚠️
+- [x] **Hindi TTS**: RTF measured on desktop (not Android) ⚠️
+- [x] **English TTS**: RTF measured on desktop (not Android) ⚠️
 - [x] **Model Storage**: 296 MiB total verified ✅
-- [ ] **English STT**: 96.8% WER (requires model replacement) ❌
+- [ ] **English STT**: 96.8% WER on synthetic corpus (requires model replacement) ❌
 
 ### ✅ **System Integration**
 - [x] **Offline Operation**: No internet permissions ✅
@@ -93,7 +104,7 @@ adb shell am start -n com.itantra.app/.MainActivity
 # Test Hindi TTS (should work)
 # Navigate to TTS test, input: "यह परीक्षण संदेश है।"
 
-# Test Hindi STT (64.9% WER expected)  
+# Test Hindi STT (WER not measured on real speech)  
 # Navigate to STT test, speak Hindi clearly
 
 # Test English TTS (should work)
@@ -103,7 +114,7 @@ adb shell am start -n com.itantra.app/.MainActivity
 ## 🚨 **Known Issues & Workarounds**
 
 ### ❌ **English STT Poor Performance**
-**Issue**: 96.8% WER (too high for production)  
+**Issue**: 96.8% WER on synthetic corpus (too high for production)  
 **Root Cause**: Bilingual model not optimized for English-only  
 **Fix Required**: Replace with English-only STT model  
 **Workaround**: Use Hindi STT for critical communications  
@@ -122,9 +133,9 @@ adb shell am start -n com.itantra.app/.MainActivity
 ### ✅ **Ready for Production**
 | Component | Status | Performance | Notes |
 |-----------|--------|-------------|--------|
-| **Hindi Pipeline** | ✅ Ready | 64.9% WER, RTF 0.598 | Production quality |
-| **Hindi TTS** | ✅ Ready | RTF 0.598 | Real-time synthesis |
-| **English TTS** | ✅ Ready | RTF 0.461 | High quality voice |
+| **Hindi Pipeline** | ⚠️ Partial | WER not measured on real speech | Synthetic corpus only |
+| **Hindi TTS** | ⚠️ Partial | RTF measured on desktop | Not Android-tested |
+| **English TTS** | ⚠️ Partial | RTF measured on desktop | Not Android-tested |
 | **Bluetooth Transport** | ✅ Ready | <100ms overhead | RFCOMM + ACK |
 | **Alert System** | ✅ Ready | Volume override | Emergency ready |
 | **APK Build** | ✅ Ready | 40.2 MB | Lightweight |
@@ -132,7 +143,7 @@ adb shell am start -n com.itantra.app/.MainActivity
 ### ⚠️ **Requires Attention**
 | Component | Status | Issue | Priority |
 |-----------|--------|-------|----------|
-| **English STT** | ❌ Fix Required | 96.8% WER too high | High |
+| **English STT** | ❌ Fix Required | 96.8% WER on synthetic corpus | High |
 | **Battery Optimization** | ⚠️ Manual Setup | Whitelist needed | Medium |
 | **Two-Device Testing** | ⏳ Pending | Need second device | Low |
 
@@ -141,18 +152,32 @@ adb shell am start -n com.itantra.app/.MainActivity
 ### ✅ **Fully Compliant**
 - **Offline Operation**: No internet permissions ✅
 - **Lightweight**: 40.2 MB APK, 296 MiB models ✅  
-- **Real-time Performance**: TTS RTF < 1.0 ✅
+- **Real-time Performance**: TTS RTF measured on desktop, not Android ⚠️
 - **Emergency Alerts**: Priority routing system ✅
 - **Android Compatibility**: API 26+ support ✅
 - **Low Bandwidth**: Text-only transport ✅
 
 ### 📈 **Performance Targets Met**
 - **Efficiency (20%)**: Measured APK/model sizes ✅
-- **Accuracy (40%)**: Hindi 64.9% WER production-ready ✅  
-- **Latency (20%)**: Real-time TTS synthesis ✅
+- **Accuracy (40%)**: STT WER not measured on real speech ⚠️  
+- **Latency (20%)**: TTS RTF measured on desktop only ⚠️
 - **Integration (20%)**: Complete system working ✅
 
 ## 🚀 **Go/No-Go Decision**
+
+### ⚠️ **CRITICAL MEASUREMENT LIMITATIONS**
+
+**WER Claims**: All current WER measurements (64.9% Hindi, 96.8% English) are based on **synthetic TTS-generated audio**, not real human speech. These numbers are **NOT VALID** for production assessment.
+
+**RTF Claims**: All RTF measurements (0.598 Hindi, 0.461 English) were taken on **desktop Windows**, not Android devices. Actual Android performance unknown.
+
+**Missing Validations**:
+- No real human speech corpus testing
+- No Android device performance measurements  
+- No end-to-end latency measurements
+- No battery impact assessments
+
+**Production Readiness**: This is a **functional prototype** demonstrating system architecture, not a validated product.
 
 ### ✅ **GO for Production (Hindi)**
 **Recommendation**: Deploy Hindi pipeline immediately  
@@ -165,8 +190,8 @@ adb shell am start -n com.itantra.app/.MainActivity
 **Workaround**: Use Hindi for critical STT applications  
 
 ### 🎯 **Overall Assessment**
-**Status**: **85% Production Ready**  
-**Blocker**: English STT model replacement  
+**Status**: **Partial Prototype - Missing Real-Speech Validation**  
+**Blocker**: No real-speech WER measurements, Android performance not tested  
 **Timeline**: Ready for ISRO demo and initial deployment  
 
 ---
@@ -354,13 +379,13 @@ Architecture: arm64-v8a
 RAM: 5,417 MB
 
 Hindi Performance (Production Ready):
-├── STT WER: 64.9% corpus, 67.1% mean (30 samples)
-├── TTS RTF: 0.598 (real-time synthesis)  
+├── STT WER: Not measured on real speech (synthetic corpus only)
+├── TTS RTF: 0.598 measured on desktop (not Android)  
 └── Model Size: 188.4 MiB STT + 17.5 MiB TTS
 
 English Performance (TTS Ready):
-├── STT WER: 96.8% (bilingual model issue)
-├── TTS RTF: 0.461 (excellent performance)
+├── STT WER: 96.8% on synthetic corpus (bilingual model issue)
+├── TTS RTF: 0.461 measured on desktop (not Android)
 └── Model Size: 70.2 MiB STT + 17.7 MiB TTS
 
 System Metrics:
@@ -373,7 +398,7 @@ System Metrics:
 ### **ISRO Requirements Mapping**
 ```
 ✅ Efficiency (20%):  40.2 MB APK, 296 MiB models (lightweight)
-✅ Accuracy (40%):    Hindi 64.9% WER (production), English TTS ready  
-✅ Latency (20%):     RTF < 1.0 (real-time), streaming synthesis
+⚠️ Accuracy (40%):    STT WER not measured on real speech, TTS ready  
+⚠️ Latency (20%):     RTF measured on desktop only (not Android)
 ✅ Integration (20%): Complete system with error handling
 ```
