@@ -76,7 +76,7 @@ object LanguageRegistry {
             "models/en/tts/espeak-ng-data",
             ModelStatus.NOT_INSTALLED,
             measuredBundleBytes = 118_000_000, // ~118 MB for Whisper tiny.en int8 (12MB encoder + 105MB decoder + tokens)
-            validationNote = "Whisper tiny.en int8 - expected significant WER improvement over previous streaming model mismatch (was 96.8% WER).")
+            validationNote = "Whisper tiny.en int8 - previous synthetic corpus test showed 96.8% WER (INVALID measurement), real speech validation required.")
     )
     
     // Alternative larger model option (commented out but documented)
