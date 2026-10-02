@@ -17,7 +17,6 @@ import com.itantra.app.benchmark.BenchmarkStore
 import com.itantra.app.models.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
 class MeasurementActivity : ComponentActivity() {
     
@@ -223,32 +222,67 @@ class MeasurementActivity : ComponentActivity() {
         
         onProgress("Measuring idle CPU (5 minutes)...", 0.2f)
         
-        // 5-minute idle CPU measurement
+        // 5-minute idle CPU measurement - real system measurement
         val cpuMeasurements = mutableListOf<Double>()
         val startTime = SystemClock.elapsedRealtime()
-        var lastCpuTime = getCpuTime()
-        var lastMeasureTime = startTime
+        
+        // Use /proc/stat for actual system CPU usage measurement
+        var lastTotalTime = 0L
+        var lastIdleTime = 0L
+        
+        try {
+            val statFile = java.io.File("/proc/stat")
+            if (statFile.exists()) {
+                val firstLine = statFile.readLines().first()
+                val values = firstLine.split("\\s+".toRegex()).drop(1).map { it.toLong() }
+                lastTotalTime = values.sum()
+                lastIdleTime = values[3] // idle time is 4th value
+            }
+        } catch (e: Exception) {
+            benchmarkStore.add("cpu_measurement_error", 1.0, "proc_stat_unavailable")
+        }
         
         repeat(30) { i -> // 30 samples over 5 minutes (10 second intervals)
             delay(10000) // 10 seconds
-            val currentTime = SystemClock.elapsedRealtime()
-            val currentCpuTime = getCpuTime()
             
-            val timeDelta = currentTime - lastMeasureTime
-            val cpuDelta = currentCpuTime - lastCpuTime
-            val cpuPercent = if (timeDelta > 0) (cpuDelta.toDouble() / timeDelta / 10) else 0.0
-            
-            cpuMeasurements.add(cpuPercent.coerceIn(0.0, 100.0))
-            benchmarkStore.add("idle_cpu_percent_sample", cpuPercent, "percent")
-            
-            lastCpuTime = currentCpuTime
-            lastMeasureTime = currentTime
+            try {
+                val statFile = java.io.File("/proc/stat")
+                if (statFile.exists()) {
+                    val firstLine = statFile.readLines().first()
+                    val values = firstLine.split("\\s+".toRegex()).drop(1).map { it.toLong() }
+                    val totalTime = values.sum()
+                    val idleTime = values[3]
+                    
+                    val totalDelta = totalTime - lastTotalTime
+                    val idleDelta = idleTime - lastIdleTime
+                    
+                    val cpuPercent = if (totalDelta > 0) {
+                        ((totalDelta - idleDelta).toDouble() / totalDelta.toDouble()) * 100.0
+                    } else 0.0
+                    
+                    cpuMeasurements.add(cpuPercent.coerceIn(0.0, 100.0))
+                    benchmarkStore.add("idle_cpu_percent_sample", cpuPercent, "percent")
+                    
+                    lastTotalTime = totalTime
+                    lastIdleTime = idleTime
+                } else {
+                    // Fallback: report measurement unavailable
+                    benchmarkStore.add("cpu_measurement_unavailable_sample", 1.0, "count")
+                }
+            } catch (e: Exception) {
+                benchmarkStore.add("cpu_measurement_error_sample", 1.0, "count")
+            }
             
             onProgress("Idle CPU measurement ${i+1}/30", 0.2f + (i * 0.6f / 30f))
         }
         
-        val avgCpu = cpuMeasurements.average()
-        benchmarkStore.add("idle_cpu_percent_5min_avg", avgCpu, "percent")
+        if (cpuMeasurements.isNotEmpty()) {
+            val avgCpu = cpuMeasurements.average()
+            benchmarkStore.add("idle_cpu_percent_5min_avg", avgCpu, "percent")
+            benchmarkStore.add("idle_cpu_measurement_count", cpuMeasurements.size.toDouble(), "samples")
+        } else {
+            benchmarkStore.add("idle_cpu_measurement_status", 0.0, "no_valid_samples")
+        }
         
         onProgress("Measuring RAM with language loaded...", 0.8f)
         
@@ -274,116 +308,25 @@ class MeasurementActivity : ComponentActivity() {
     }
     
     private suspend fun runLatencyMeasurements(onProgress: (String, Float) -> Unit) {
-        onProgress("Preparing latency measurements...", 0.0f)
+        onProgress("Latency measurements require real usage data", 0.0f)
         
-        // Ensure language is loaded
-        if (languageManager == null) {
-            try {
-                languageManager = LanguageManager(this)
-                val spec = LanguageRegistry.byCode("hi")
-                languageManager!!.loadLanguage(spec)
-            } catch (e: Exception) {
-                return
-            }
-        }
+        // STT latency measurements require real recorded audio corpus
+        benchmarkStore.add("stt_latency_measurement_status", 0.0, "requires_real_audio_corpus")
+        onProgress("STT latency: Use tools/prepare_real_speech_corpus.py for test data", 0.3f)
         
-        val sttLatencies = mutableListOf<Double>()
-        val ttsLatencies = mutableListOf<Double>()
-        val ttsRtfs = mutableListOf<Double>()
+        // TTS latency can only be measured with real synthesis requests
+        benchmarkStore.add("tts_latency_measurement_status", 0.0, "requires_real_synthesis_requests")
+        onProgress("TTS latency: Measure during actual app usage", 0.6f)
         
-        onProgress("Running 20 STT latency measurements...", 0.1f)
+        // End-to-end latency requires real Bluetooth message exchange
+        benchmarkStore.add("end_to_end_latency_measurement_status", 0.0, "requires_real_bluetooth_exchange")
+        onProgress("End-to-end latency: Measure during actual communication", 0.9f)
         
-        // STT latency measurements (20 runs)
-        repeat(20) { i ->
-            try {
-                // Simulate 2-second audio samples
-                val audioSamples = generateTestAudio(2.0)
-                val startTime = System.nanoTime()
-                val result = languageManager!!.decode(audioSamples, 16000)
-                val latency = (System.nanoTime() - startTime) / 1_000_000.0
-                
-                sttLatencies.add(latency)
-                benchmarkStore.add("stt_latency_ms", latency, "ms")
-                
-                onProgress("STT measurement ${i+1}/20", 0.1f + (i * 0.3f / 20f))
-                delay(500) // Brief pause between measurements
-            } catch (e: Exception) {
-                // Skip failed measurements
-            }
-        }
+        // Note: Real latency measurements are implemented in AlertsAndMeasurements.kt
+        // and are collected during normal app usage via CommunicationActivity
+        benchmarkStore.add("real_latency_collection_location", 1.0, "AlertsAndMeasurements_class")
         
-        onProgress("Running 20 TTS latency measurements...", 0.4f)
-        
-        // TTS latency and RTF measurements (20 runs)
-        val testTexts = listOf(
-            "नमस्ते। कृपया सुरक्षित स्थान पर जाएँ।",
-            "आपातकाल की स्थिति में तुरंत इस स्थान को छोड़ें।",
-            "यह एक परीक्षण संदेश है।"
-        )
-        
-        repeat(20) { i ->
-            try {
-                val text = testTexts[i % testTexts.size]
-                val startTime = System.nanoTime()
-                val (samples, sampleRate) = languageManager!!.synthesize(text)
-                val synthesisTime = (System.nanoTime() - startTime) / 1_000_000.0
-                
-                val audioLength = samples.size * 1000.0 / sampleRate
-                val rtf = synthesisTime / audioLength
-                
-                ttsLatencies.add(synthesisTime)
-                ttsRtfs.add(rtf)
-                
-                benchmarkStore.add("tts_synthesis_latency_ms", synthesisTime, "ms")
-                benchmarkStore.add("tts_rtf", rtf, "ratio")
-                
-                onProgress("TTS measurement ${i+1}/20", 0.4f + (i * 0.3f / 20f))
-                delay(500)
-            } catch (e: Exception) {
-                // Skip failed measurements
-            }
-        }
-        
-        onProgress("Running end-to-end latency measurements...", 0.7f)
-        
-        // End-to-end latency simulation (20 runs)
-        repeat(20) { i ->
-            try {
-                val startTime = System.nanoTime()
-                
-                // Simulate full pipeline: STT + TTS (without fake transport delay)
-                val audioSamples = generateTestAudio(1.5)
-                val sttResult = languageManager!!.decode(audioSamples, 16000)
-                
-                val (ttsAudio, _) = languageManager!!.synthesize("Test message")
-                
-                val endToEndTime = (System.nanoTime() - startTime) / 1_000_000.0
-                benchmarkStore.add("end_to_end_stt_tts_latency_ms", endToEndTime, "ms")
-                
-                onProgress("End-to-end measurement ${i+1}/20", 0.7f + (i * 0.2f / 20f))
-                delay(1000)
-            } catch (e: Exception) {
-                // Skip failed measurements
-            }
-        }
-        
-        // Calculate statistics
-        if (sttLatencies.isNotEmpty()) {
-            benchmarkStore.add("stt_latency_median_ms", sttLatencies.sorted()[sttLatencies.size/2], "ms")
-            benchmarkStore.add("stt_latency_worst_ms", sttLatencies.maxOrNull() ?: 0.0, "ms")
-        }
-        
-        if (ttsLatencies.isNotEmpty()) {
-            benchmarkStore.add("tts_latency_median_ms", ttsLatencies.sorted()[ttsLatencies.size/2], "ms")
-            benchmarkStore.add("tts_latency_worst_ms", ttsLatencies.maxOrNull() ?: 0.0, "ms")
-        }
-        
-        if (ttsRtfs.isNotEmpty()) {
-            benchmarkStore.add("tts_rtf_median", ttsRtfs.sorted()[ttsRtfs.size/2], "ratio")
-            benchmarkStore.add("tts_rtf_worst", ttsRtfs.maxOrNull() ?: 0.0, "ratio")
-        }
-        
-        onProgress("Latency measurements complete", 1.0f)
+        onProgress("Latency measurements noted as requiring real usage", 1.0f)
     }
     
     private suspend fun runAccuracyMeasurements(onProgress: (String, Float) -> Unit) {
@@ -403,24 +346,10 @@ class MeasurementActivity : ComponentActivity() {
     }
     
     private fun generateTestAudio(durationSeconds: Double): FloatArray {
-        // Generate realistic audio samples for testing (silence + some noise)
-        val sampleRate = 16000
-        val samples = (sampleRate * durationSeconds).toInt()
-        return FloatArray(samples) { Random.nextFloat() * 0.01f } // Very quiet noise
-    }
-    
-    private fun getCpuTime(): Long {
-        return try {
-            val statFile = java.io.File("/proc/self/stat")
-            if (statFile.exists()) {
-                val stat = statFile.readText().split(" ")
-                (stat[13].toLong() + stat[14].toLong()) * 10 // Convert to milliseconds
-            } else {
-                SystemClock.uptimeMillis()
-            }
-        } catch (e: Exception) {
-            SystemClock.uptimeMillis()
-        }
+        // REMOVED: No longer generate fake audio samples
+        // Real measurements require actual recorded speech corpus
+        // Use tools/prepare_real_speech_corpus.py to create proper test data
+        throw UnsupportedOperationException("Use real audio corpus for STT measurements")
     }
     
     private fun getBenchmarkResults(): List<String> {
