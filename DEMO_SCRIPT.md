@@ -22,7 +22,7 @@ This script demonstrates iTantra's **real, working voice communication system** 
 
 ### Performance Data Ready
 - [x] **Hindi WER**: Not measured on real speech (synthetic corpus used)
-- [x] **English WER**: 96.8% on synthetic corpus (model needs replacement)
+- [x] **English WER**: 96.8% on synthetic corpus (INVALID measurement - need real speech)
 - [x] **TTS RTF**: Hindi 0.598, English 0.461 (desktop measurements, not Android)
 - [x] **Device Specs**: Android 15, API 35, ARM64, 5.4GB RAM
 

@@ -30,7 +30,7 @@
 - [x] **Hindi TTS**: RTF measured on desktop (not Android) ⚠️
 - [x] **English TTS**: RTF measured on desktop (not Android) ⚠️
 - [x] **Model Storage**: 296 MiB total verified ✅
-- [ ] **English STT**: 96.8% WER on synthetic corpus (requires model replacement) ❌
+- [ ] **English STT**: 96.8% WER on synthetic corpus (INVALID - requires real speech testing) ❌
 
 ### ✅ **System Integration**
 - [x] **Offline Operation**: No internet permissions ✅
@@ -49,7 +49,7 @@
 
 ### ✅ **Model Files (Deploy via install_models.py)**
 ```
-Hindi Models (Production Ready):
+Hindi Models (Functional - Validation Required):
 ├── STT: sherpa-onnx-nemo-ctc-hi-male-medium/ (188.4 MiB) ✅
 ├── TTS: hi_IN-male-medium.onnx (17.5 MiB) ✅
 └── Phonemes: espeak-ng-data/hi/ ✅
@@ -86,7 +86,7 @@ adb shell pm list packages | grep itantra  # Should show com.itantra.app
 
 ### 3. **Model Deployment**
 ```bash
-# Deploy Hindi models (production ready)
+# Deploy Hindi models (functional - validation required)
 python3 install_models.py --languages hi --device-id YOUR_DEVICE_ID
 
 # Deploy English models (TTS working, STT needs replacement)  
@@ -114,7 +114,7 @@ adb shell am start -n com.itantra.app/.MainActivity
 ## 🚨 **Known Issues & Workarounds**
 
 ### ❌ **English STT Poor Performance**
-**Issue**: 96.8% WER on synthetic corpus (too high for production)  
+**Issue**: 96.8% WER on synthetic corpus (INVALID - need real speech testing)  
 **Root Cause**: Bilingual model not optimized for English-only  
 **Fix Required**: Replace with English-only STT model  
 **Workaround**: Use Hindi STT for critical communications  
@@ -143,7 +143,7 @@ adb shell am start -n com.itantra.app/.MainActivity
 ### ⚠️ **Requires Attention**
 | Component | Status | Issue | Priority |
 |-----------|--------|-------|----------|
-| **English STT** | ❌ Fix Required | 96.8% WER on synthetic corpus | High |
+| **English STT** | ❌ Fix Required | 96.8% WER on synthetic corpus (INVALID) | High |
 | **Battery Optimization** | ⚠️ Manual Setup | Whitelist needed | Medium |
 | **Two-Device Testing** | ⏳ Pending | Need second device | Low |
 
@@ -205,7 +205,7 @@ cd iTantra-android-smoke
 # Install app
 adb install app/build/outputs/apk/debug/app-debug.apk
 
-# Deploy Hindi models (production ready)
+# Deploy Hindi models (functional - validation required)
 python3 install_models.py --languages hi --device-id $(adb devices | grep device | head -1 | cut -f1)
 
 # Deploy English TTS (working) + STT (needs replacement) 
@@ -378,13 +378,13 @@ Android: 15 (API 35)
 Architecture: arm64-v8a
 RAM: 5,417 MB
 
-Hindi Performance (Production Ready):
+Hindi Performance (Functional - Validation Required):
 ├── STT WER: Not measured on real speech (synthetic corpus only)
 ├── TTS RTF: 0.598 measured on desktop (not Android)  
 └── Model Size: 188.4 MiB STT + 17.5 MiB TTS
 
 English Performance (TTS Ready):
-├── STT WER: 96.8% on synthetic corpus (bilingual model issue)
+├── STT WER: 96.8% on synthetic corpus (INVALID measurement)
 ├── TTS RTF: 0.461 measured on desktop (not Android)
 └── Model Size: 70.2 MiB STT + 17.7 MiB TTS
 
