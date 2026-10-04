@@ -5,219 +5,74 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Cache Gradle dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.gradle/caches
-          ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-        restore-keys: |
-          ${{ runner.os }}-gradle-
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
 
-    - name: Make gradlew executable
-      run: chmod +x ./gradlew
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
-    - name: Download and prepare model files
-      run: |
-        echo "Downloading real model files for production APK..."
-        
-        # Create models directory in assets
-        mkdir -p app/src/main/assets/models/hi/stt
-        mkdir -p app/src/main/assets/models/hi/tts/espeak-ng-data
-        mkdir -p app/src/main/assets/models/en/stt  
-        mkdir -p app/src/main/assets/models/en/tts/espeak-ng-data
-        
-        # Install Python dependencies for model download
-        pip install requests
+      - name: Download model files
+        run: |
+          pip install requests
+          python scripts/download_models.py
+          du -sh app/src/main/assets/models/
 
-        # Run model download script (will be created in task #7)
-        python scripts/download_models.py || echo "Model download script not yet implemented - using placeholders"
-        
-        # Verify model structure
-        echo "Model directory structure:"
-        ls -la app/src/main/assets/models/
-        
-        # Check APK size estimate
-        du -sh app/src/main/assets/models/ || echo "Models directory size check"
+      - name: Check model files are real (warning only)
+        run: |
+          M=app/src/main/assets/models
+          for f in hi/stt/model.int8.onnx hi/tts/model.onnx hi/tts/espeak-ng-data/phontab \
+                   en/stt/encoder.int8.onnx en/stt/decoder.int8.onnx \
+                   en/tts/model.onnx en/tts/espeak-ng-data/phontab; do
+            if [ ! -s "$M/$f" ]; then
+              echo "::warning::Missing model file: $f (speech features will not work for that part)"
+            fi
+          done
 
-    - name: Build debug APK
-      run: |
-        echo "Building debug APK with bundled models..."
-        ./gradlew assembleDebug --stacktrace
-        
-        # Check APK size
-        APK_SIZE=$(ls -lh app/build/outputs/apk/debug/app-debug.apk | awk '{print $5}')
-        echo "APK Size: $APK_SIZE"
-        
-        # Verify APK was created
-        if [ ! -f app/build/outputs/apk/debug/app-debug.apk ]; then
-          echo "ERROR: APK was not created"
-          exit 1
-        fi
+      - name: Run unit tests
+        run: ./gradlew testDebugUnitTest --stacktrace
 
-    - name: Rename APK with version info
-      run: |
-        # Get version info from build.gradle.kts
-        VERSION_NAME=$(grep 'versionName = ' app/build.gradle.kts | sed 's/.*versionName = "\(.*\)".*/\1/')
-        VERSION_CODE=$(grep 'versionCode = ' app/build.gradle.kts | sed 's/.*versionCode = \(.*\)/\1/')
-        
-        # Get commit info
-        COMMIT_SHA=$(git rev-parse --short HEAD)
-        BUILD_DATE=$(date +"%Y%m%d")
-        
-        # Create descriptive filename
-        NEW_NAME="iTantra-v${VERSION_NAME}-${BUILD_DATE}-${COMMIT_SHA}-debug.apk"
-        
-        # Copy and rename APK
-        cp app/build/outputs/apk/debug/app-debug.apk "$NEW_NAME"
-        
-        echo "APK_FILENAME=$NEW_NAME" >> $GITHUB_ENV
-        echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
-        echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-        echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
-    - name: Create build info
-      run: |
-        cat > build-info.txt << EOF
-        iTantra Android Build Information
-        ================================
-        
-        Version: $VERSION_NAME (Build $VERSION_CODE)
-        Commit: $COMMIT_SHA
-        Date: $(date)
-        Branch: ${GITHUB_REF#refs/heads/}
-        
-        Features:
-        - Offline Hindi & English STT/TTS
-        - Bluetooth push-to-talk communication
-        - Runtime permissions handling
-        - First-run model installation from assets
-        - sherpa-onnx v1.13.5 integration
-        
-        Installation:
-        1. Download the APK file
-        2. Enable "Install from unknown sources" in Android settings
-        3. Install the APK
-        4. Grant required permissions when prompted
-        5. Select language and tap "Install & Load" to set up models
-        6. Use Bluetooth connection for push-to-talk communication
-        
-        APK Size: $(ls -lh $APK_FILENAME | awk '{print $5}')
-        
-        Note: This is a debug build for testing purposes.
-        EOF
+      - name: Verify APK and report size
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
+          test -f "$APK" || { echo "APK not created"; exit 1; }
+          ls -lh "$APK"
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
 
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: iTantra-APK
-        path: |
-          ${{ env.APK_FILENAME }}
-          build-info.txt
-        retention-days: 30
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: iTantra-debug-apk
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
 
-    - name: Upload build logs
-      if: failure()
-      uses: actions/upload-artifact@v3
-      with:
-        name: build-logs
-        path: |
-          app/build/reports/
-          ~/.gradle/daemon/*/daemon-*.out.log
-        retention-days: 7
-
-    - name: Comment on PR with download link
-      if: github.event_name == 'pull_request'
-      uses: actions/github-script@v6
-      with:
-        script: |
-          const { data: artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            run_id: context.runId,
-          });
-          
-          const apkArtifact = artifacts.artifacts.find(artifact => artifact.name === 'iTantra-APK');
-          
-          if (apkArtifact) {
-            const comment = `## 📱 APK Build Ready!
-            
-**Version:** ${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})
-**Commit:** ${{ env.COMMIT_SHA }}
-            
-✅ Debug APK has been built successfully and is ready for download.
-            
-**Download:** [iTantra APK & Build Info](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            
-**Features included:**
-- Offline Hindi & English STT/TTS  
-- Bluetooth push-to-talk communication
-- Runtime permissions handling
-- First-run model installation
-            
-**Testing Instructions:**
-1. Download the APK from the artifacts section above
-2. Install on Android device (API 26+, arm64)
-3. Grant permissions when prompted
-4. Tap "Install & Load" to set up models
-5. Test STT/TTS functionality
-6. Test Bluetooth connection between two devices
-            
-*This is a debug build for testing purposes.*`;
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
-          }
-
-  # Job for checking sherpa-onnx dependency
-  dependency-check:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-
-    - name: Make gradlew executable
-      run: chmod +x ./gradlew
-
-    - name: Check sherpa-onnx dependency
-      run: |
-        echo "Checking sherpa-onnx JitPack dependency..."
-        ./gradlew app:dependencies --configuration debugRuntimeClasspath | grep sherpa-onnx || echo "sherpa-onnx not found in dependencies"
-        
-        # Test compilation only (no APK build)
-        ./gradlew app:compileDebugKotlin --stacktrace
-        
-        echo "Dependency check completed successfully"
+      - name: Upload build reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-reports
+          path: app/build/reports/
+          retention-days: 7
