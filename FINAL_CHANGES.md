@@ -28,15 +28,17 @@ All documentation files have been replaced with honest, accurate assessments of 
 - **Validation Framework**: Complete documentation of testing infrastructure and procedures
 
 ### 2. ✅ Enhanced Alert System Implementation
-Implemented comprehensive emergency alert testing functionality:
+Implemented alarm volume testing functionality (NOT real app alert path):
 
 #### Emergency Alert Testing Features:
-- **Immediate Alert Button**: Instant emergency alert test with maximum volume override
-- **Scheduled Alert (10-second countdown)**: Test alert with wake lock to prevent device sleep
-- **Wake Lock Integration**: Proper power management for emergency scenarios
+- **Immediate Alarm Volume Test**: Instant beep test with maximum volume override (tests alarm volume system)
+- **Wake Lock Test (10-second countdown)**: Test wake lock functionality to prevent device sleep
+- **Wake Lock Integration**: Proper power management for testing scenarios
 - **System Audio Control**: Maximum alarm volume with proper restoration
 - **Error Handling**: Graceful fallbacks for audio system issues
 - **Professional Integration**: Clean UI integration in MeasurementActivity
+
+**IMPORTANT**: These test alarm volume and wake lock systems, NOT the app's real alert playback path through PlaybackRouter.
 
 #### Technical Implementation:
 ```kotlin
@@ -49,12 +51,15 @@ Implemented comprehensive emergency alert testing functionality:
 ```
 
 ### 3. ✅ Message Transport Enhancement
-Enhanced communication protocol for latency measurement capabilities:
+Enhanced communication protocol to support ping/pong message types (implementation only):
 
 #### Protocol Updates:
-- **Extended MessageType Enum**: Added PONG message type to support ping/pong latency measurement
+- **Extended MessageType Enum**: Added PONG message type to support future latency measurement
 - **BluetoothTestActivity Updates**: Complete when statement coverage for all message types
+- **Transport Layer Updates**: ReliableMessageClient and BluetoothClassicTransport handle PING/PONG
 - **Protocol Compliance**: Maintained backward compatibility with existing message handling
+
+**NOTE**: Only the message type and handling were added. No actual ping/pong latency measurement system is implemented.
 
 #### Implementation Details:
 ```kotlin
@@ -121,10 +126,10 @@ All primary system components remain functional and well-integrated:
 
 ### Ready for Next Development Phase:
 ✅ **System Architecture**: Complete and scalable foundation implemented  
-✅ **Code Quality**: Professional implementation meeting development standards  
+**IMPLEMENTED, NOT DEVICE-TESTED** **Code Quality**: Professional implementation meeting development standards  
 ✅ **Documentation**: Comprehensive technical and deployment documentation  
 ✅ **Testing Infrastructure**: Framework ready for systematic validation  
-✅ **Emergency Features**: Alert system ready for operational deployment  
+**IMPLEMENTED, NOT DEVICE-TESTED** **Emergency Features**: Alert system implementation ready for testing  
 
 ### Required for Production Deployment:
 📋 **Multi-Device Testing**: Two-device communication validation needed  
@@ -139,12 +144,13 @@ The following features are implemented and ready but require human testing with 
 
 ### Critical Manual Testing Requirements:
 
-#### 1. **Emergency Alert System**
-- **Test Procedure**: Use "Test Alert in 10s" button in MeasurementActivity
-- **Validation**: Confirm maximum volume alert plays after countdown
-- **Device Behavior**: Verify wake lock prevents device sleep during countdown
-- **Audio Override**: Test alert plays at maximum volume regardless of current settings
-- **Recovery**: Confirm original volume settings restored after alert
+#### 1. **Alarm Volume Testing (NOT Real Alert System)**
+- **Test Procedure**: Use "Alarm Volume Beep" button in MeasurementActivity
+- **Validation**: Confirm maximum volume beep plays immediately
+- **Wake Lock Test**: Use "Wake Lock Test (10s)" button to test device stays awake during countdown
+- **Audio Override**: Test beep plays at maximum alarm volume regardless of current settings
+- **Recovery**: Confirm original volume settings restored after beep
+- **LIMITATION**: This does NOT test the app's real alert path through PlaybackRouter
 
 #### 2. **Multi-Device Communication**
 - **Setup**: Install iTantra on two Android devices
@@ -172,6 +178,9 @@ The following features are implemented and ready but require human testing with 
 - **Operational Scenarios**: Test realistic usage patterns for ISRO deployment
 
 ## Next Development Phase Requirements
+
+### NOT IMPLEMENTED - Still Required:
+📋 **Phone-to-Phone Latency Measurement**: The PING/PONG message types are added but no actual latency measurement system is implemented. Need to create ping sender, pong responder, and clock offset calculation.
 
 ### Immediate Actions Required:
 1. **Execute Manual Device Testing**: Complete all items in "NEEDS HUMAN DEVICE TESTING" section

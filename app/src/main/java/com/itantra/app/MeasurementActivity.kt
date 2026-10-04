@@ -94,7 +94,7 @@ class MeasurementActivity : ComponentActivity() {
                             enabled = !isRunning && alertCountdown == 0,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(if (alertCountdown > 0) "Alert in ${alertCountdown}s" else "Test Alert in 10s")
+                            Text(if (alertCountdown > 0) "Wake lock test ${alertCountdown}s" else "Wake Lock Test (10s)")
                         }
                         
                         Button(
@@ -104,14 +104,14 @@ class MeasurementActivity : ComponentActivity() {
                             enabled = !isRunning,
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text("Immediate Alert")
+                            Text("Alarm Volume Beep")
                         }
                     }
                     
                     if (alertCountdown > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Emergency alert will play in $alertCountdown seconds")
-                        Text("Device will stay awake with partial wake lock")
+                        Text("Wake lock test will play beep in $alertCountdown seconds")
+                        Text("Tests: device stays awake with partial wake lock")
                     }
                 }
             }
@@ -220,7 +220,7 @@ class MeasurementActivity : ComponentActivity() {
         
         try {
             // Count down for 10 seconds
-            repeat(10) { i ->
+            repeat(10) {
                 delay(1000)
                 // Note: countdown is handled in Compose UI via LaunchedEffect
             }

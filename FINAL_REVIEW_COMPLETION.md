@@ -6,7 +6,7 @@ Successfully completed 7-step review remediation for iTantra Android prototype. 
 ## Status Summary: 6/7 Steps Fully Complete ✅
 
 ### ✅ STEP 0: Remove committed secrets - COMPLETE
-- **Issue**: `keystore.properties` contained real credentials "SaloniKori"
+- **Issue**: `keystore.properties` contained real credentials (removed)
 - **Fix**: Removed file, added to .gitignore, created `.example` template, made signing conditional
 - **Verification**: No secrets remain in repository
 - **Security Impact**: Critical security breach resolved

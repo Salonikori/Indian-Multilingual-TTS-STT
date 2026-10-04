@@ -13,7 +13,7 @@ This demonstration script presents iTantra's offline voice-to-text-to-voice comm
 
 ### Hardware Preparation
 - **Target Device**: Android 8.0+ with ARM64 processor
-- **Storage**: Verify sufficient space for models (~500MB total)
+- **Storage**: Verify sufficient space for models (~300MB total)
 - **Audio**: Test microphone input and speaker output functionality
 - **Installation**: Install APK and verify app launches successfully
 
@@ -87,7 +87,7 @@ Voice Input → VAD → Speech Segmentation → STT → Text Transport → TTS �
 - Mission control communication
 - Emergency response coordination
 - Multi-language team collaboration
-- Low-bandwidth satellite link optimization
+- Low-bandwidth text transport (designed for satellite links)
 
 ### 6. System Architecture Summary (60 seconds)
 
@@ -156,7 +156,7 @@ Voice Input → VAD → Speech Segmentation → STT → Text Transport → TTS �
 **ISRO Value Proposition**:
 - Emergency communication scenarios
 - Multi-language coordination requirements
-- Satellite communication bandwidth optimization
+- Text-based transport designed for low-bandwidth scenarios
 - Mission-critical reliability features
 
 ## Question and Answer Preparation
@@ -194,7 +194,7 @@ A: "We've implemented retry mechanisms and message delivery confirmation. The ar
 **ISRO Relevance**:
 - ✅ Emergency communication capabilities
 - ✅ Multi-language team coordination
-- ✅ Low-bandwidth satellite optimization
+- ✅ Text-based transport (designed for low-bandwidth links)
 - ✅ Offline operation reliability
 - ✅ Scalable architecture for additional languages
 

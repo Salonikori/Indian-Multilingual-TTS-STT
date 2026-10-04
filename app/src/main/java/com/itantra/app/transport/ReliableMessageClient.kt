@@ -41,7 +41,7 @@ class ReliableMessageClient(
                         retryJobs.remove(id)?.cancel()
                     }
                 }
-                MessageType.PING -> Unit
+                MessageType.PING, MessageType.PONG -> Unit
                 else -> {
                     // Send ACK for all SPEECH/ALERT messages (including duplicates)
                     val ackPayload = MessagePayload(

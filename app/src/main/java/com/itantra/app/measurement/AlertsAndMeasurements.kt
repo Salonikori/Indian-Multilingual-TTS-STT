@@ -59,14 +59,12 @@ class AlertsAndMeasurements {
         const val ALERT_DURATION_MS = 5000L
         
         /**
-         * Test emergency alert system with maximum priority
+         * Test alarm volume system - NOT the app's real alert path
+         * This tests whether alarm volume can be raised and beeps are audible with screen off
          */
         fun testEmergencyAlert(context: Context) {
             try {
-                // Play a test alert sound using MediaPlayer
-                val mediaPlayer = android.media.MediaPlayer()
-                
-                // Generate a brief test tone (440Hz for 1 second)
+                // Test alarm volume override capability
                 val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
                 
                 // Save current volume
@@ -76,7 +74,7 @@ class AlertsAndMeasurements {
                 val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
                 audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, maxVolume, 0)
                 
-                // Use ToneGenerator for immediate alert sound
+                // Use ToneGenerator for immediate test beep (properly released)
                 val toneGen = android.media.ToneGenerator(
                     android.media.AudioManager.STREAM_ALARM,
                     android.media.ToneGenerator.MAX_VOLUME
@@ -86,7 +84,7 @@ class AlertsAndMeasurements {
                 // Show toast notification
                 android.widget.Toast.makeText(
                     context,
-                    "Emergency Alert Test - Maximum Volume",
+                    "Alarm Volume Test - Maximum Volume Beep",
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
                 
@@ -100,7 +98,7 @@ class AlertsAndMeasurements {
                 // Fallback: show toast only
                 android.widget.Toast.makeText(
                     context,
-                    "Emergency Alert Test (Audio Error: ${e.message})",
+                    "Alarm Volume Test Error: ${e.message}",
                     android.widget.Toast.LENGTH_LONG
                 ).show()
             }

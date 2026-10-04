@@ -146,7 +146,7 @@ class BluetoothClassicTransport(private val context: Context) : Transport {
                     outboxMutex.lock()
                     try { outbox.remove(payload.ackForMessageId) } finally { outboxMutex.unlock() }
                     _incoming.emit(payload) // Expose ACK to the RTT/timeline layer as well.
-                } else if (payload.type != MessageType.PING) {
+                } else if (payload.type != MessageType.PING && payload.type != MessageType.PONG) {
                     _incoming.emit(payload)
                     if (payload.type == MessageType.SPEECH || payload.type == MessageType.ALERT) {
                         sendRaw(MessagePayload(type = MessageType.ACK,
