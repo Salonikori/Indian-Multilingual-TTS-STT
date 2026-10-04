@@ -75,7 +75,7 @@ class CommunicationActivity : ComponentActivity() {
     private var benchmarkStore: BenchmarkStore? = null
     
     // Model installation from assets
-    private val assetModelInstaller = AssetModelInstaller(this)
+    private val assetModelInstaller by lazy { AssetModelInstaller(this) }
     
     // Measurement and alert system
     private val alertsAndMeasurements = AlertsAndMeasurements()

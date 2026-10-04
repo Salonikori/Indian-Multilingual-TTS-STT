@@ -16,7 +16,10 @@ import java.io.InputStream
  */
 class AssetModelInstaller(private val context: Context) {
     
-    private val prefs: SharedPreferences = context.getSharedPreferences("model_installer", Context.MODE_PRIVATE)
+    // lazy: must not touch the Context during Activity construction
+    private val prefs: SharedPreferences by lazy {
+        context.getSharedPreferences("model_installer", Context.MODE_PRIVATE)
+    }
     private val tag = "AssetModelInstaller"
     
     data class InstallProgress(
