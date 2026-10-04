@@ -1,0 +1,10 @@
+# Real model files are large and downloaded by CI
+# Keep placeholder files in git but ignore real models
+models/*/stt/*.onnx
+models/*/tts/*.onnx
+models/*/tts/espeak-ng-data/*
+!models/**/README.txt
+
+# Allow placeholder files (they have .txt extension in their names)
+!models/*/stt/tokens.txt
+!models/*/tts/tokens.txt

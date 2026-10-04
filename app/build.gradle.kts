@@ -1,5 +1,6 @@
 
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 plugins {
     id("com.android.application")
@@ -88,6 +89,17 @@ android {
         jvmTarget = "17"
     }
 
+    configurations.all {
+        resolutionStrategy {
+            // Cache changing modules for 1 hour
+            cacheDynamicVersionsFor(1, TimeUnit.HOURS)
+            cacheChangingModulesFor(1, TimeUnit.HOURS)
+            
+            // Prefer sherpa-onnx from JitPack
+            preferProjectModules()
+        }
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = false
@@ -99,8 +111,9 @@ android {
     }
 }
 
-// sherpa-onnx is published through JitPack.
+// sherpa-onnx v1.13.8 is published through JitPack.
 // Its AAR includes the arm64-v8a native libraries.
+// First build may take 2-5 minutes as JitPack compiles the library.
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.06.01"))
@@ -112,7 +125,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("androidx.core:core-ktx:1.16.0")
 
-    implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v1.13.5")
+    implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:v1.13.8")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20231013")

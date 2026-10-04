@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.itantra.app.audio.*
@@ -54,6 +55,14 @@ data class MessageWithStatus(
 
 class CommunicationActivity : ComponentActivity() {
     
+    // Permission request launcher
+    private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        val deniedPermissions = permissions.filterValues { !it }.keys
+        if (deniedPermissions.isNotEmpty()) {
+            showError("Required permissions denied: ${deniedPermissions.joinToString(", ")}. App may not work correctly.")
+        }
+    }
+    
     private var languageManager: LanguageManager? = null
     private var transport: BluetoothClassicTransport? = null
     private var reliableMessageClient: ReliableMessageClient? = null
@@ -64,6 +73,9 @@ class CommunicationActivity : ComponentActivity() {
     private var sttEngine: ManagerSttEngine? = null
     private var conversationMachine = ConversationStateMachine()
     private var benchmarkStore: BenchmarkStore? = null
+    
+    // Model installation from assets
+    private val assetModelInstaller = AssetModelInstaller(this)
     
     // Measurement and alert system
     private val alertsAndMeasurements = AlertsAndMeasurements()
@@ -93,10 +105,21 @@ class CommunicationActivity : ComponentActivity() {
     private var languageLoaded by mutableStateOf(false)
     private var languageLoading by mutableStateOf(false)
     
+    // Model installation state
+    private var modelsInstalled by mutableStateOf(false)
+    private var modelsInstalling by mutableStateOf(false)
+    private var installProgress by mutableStateOf<AssetModelInstaller.InstallProgress?>(null)
+    
     private val messageQueue = mutableListOf<Pair<String, MessagePayload>>()
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Request required permissions on startup
+        requestPermissions()
+        
+        // Check model installation status on startup
+        checkModelInstallation()
         
         // Initialize benchmark store
         benchmarkStore = BenchmarkStore(this)
@@ -188,13 +211,37 @@ class CommunicationActivity : ComponentActivity() {
                         TextButton(onClick = { showLanguageSelector = true }) {
                             Text(if (currentLanguage == "hi") "हिंदी" else "English")
                         }
-                        if (languageLoading) {
-                            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                        } else if (languageLoaded) {
-                            Text("✓ Loaded", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            TextButton(onClick = { loadLanguage() }) {
-                                Text("Load")
+                        when {
+                            modelsInstalling -> {
+                                Column {
+                                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                    installProgress?.let { progress ->
+                                        Text(
+                                            "Installing models: ${progress.progressPercent}% (${progress.filesComplete}/${progress.totalFiles})",
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    } ?: Text("Installing models...", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            languageLoading -> {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                Text("Loading language...", style = MaterialTheme.typography.bodySmall)
+                            }
+                            languageLoaded -> {
+                                Text("✓ Loaded", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
+                            }
+                            !modelsInstalled -> {
+                                Column {
+                                    TextButton(onClick = { loadLanguage() }) {
+                                        Text("Install & Load")
+                                    }
+                                    Text("Models need installation", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                            else -> {
+                                TextButton(onClick = { loadLanguage() }) {
+                                    Text("Load")
+                                }
                             }
                         }
                     }
@@ -482,6 +529,47 @@ class CommunicationActivity : ComponentActivity() {
             try {
                 languageLoading = true
                 
+                // Install models from assets if not already installed
+                if (!modelsInstalled) {
+                    modelsInstalling = true
+                    
+                    pipelineEventSink.emit(PipelineEvent(
+                        "model_install_start",
+                        android.os.SystemClock.elapsedRealtimeNanos(),
+                        details = mapOf("source" to "assets")
+                    ))
+                    
+                    val installResult = assetModelInstaller.installModels { progress ->
+                        installProgress = progress
+                    }
+                    
+                    modelsInstalling = false
+                    installProgress = null
+                    
+                    if (installResult.success) {
+                        modelsInstalled = true
+                        pipelineEventSink.emit(PipelineEvent(
+                            "model_install_complete",
+                            android.os.SystemClock.elapsedRealtimeNanos(),
+                            details = mapOf(
+                                "files_installed" to installResult.installedFiles.toString(),
+                                "size_mb" to (installResult.totalSizeBytes / 1024 / 1024).toString(),
+                                "duration_ms" to installResult.durationMs.toString()
+                            )
+                        ))
+                        android.util.Log.i("iTantra", "Models installed: ${installResult.installedFiles} files, " +
+                                "${installResult.totalSizeBytes / 1024 / 1024}MB in ${installResult.durationMs}ms")
+                    } else {
+                        pipelineEventSink.emit(PipelineEvent(
+                            "model_install_error",
+                            android.os.SystemClock.elapsedRealtimeNanos(),
+                            details = mapOf("error" to (installResult.error ?: "unknown"))
+                        ))
+                        showError("Failed to install models: ${installResult.error}")
+                        return@launch
+                    }
+                }
+                
                 // Pipeline timing: Language load start
                 pipelineEventSink.emit(PipelineEvent(
                     "language_load_start",
@@ -523,11 +611,14 @@ class CommunicationActivity : ComponentActivity() {
                 
             } catch (e: Exception) {
                 languageLoaded = false
+                modelsInstalling = false
+                installProgress = null
                 pipelineEventSink.emit(PipelineEvent(
                     "language_load_error",
                     android.os.SystemClock.elapsedRealtimeNanos(),
                     details = mapOf("error" to (e.message ?: "unknown"))
                 ))
+                showError("Failed to load language: ${e.message}")
             } finally {
                 languageLoading = false
             }
@@ -538,6 +629,51 @@ class CommunicationActivity : ComponentActivity() {
         android.util.Log.e("iTantra", message)
         lifecycleScope.launch(Dispatchers.Main) {
             android.widget.Toast.makeText(this@CommunicationActivity, message, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun requestPermissions() {
+        val requiredPermissions = buildList {
+            add(Manifest.permission.RECORD_AUDIO)
+            add(Manifest.permission.FOREGROUND_SERVICE)
+            add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
+            
+            // Bluetooth permissions (API level dependent)
+            if (Build.VERSION.SDK_INT >= 31) {
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+                add(Manifest.permission.BLUETOOTH_SCAN)
+            } else {
+                add(Manifest.permission.BLUETOOTH)
+                add(Manifest.permission.BLUETOOTH_ADMIN)
+            }
+            
+            // Notification permission for Android 13+
+            if (Build.VERSION.SDK_INT >= 33) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }.distinct().filter { 
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED 
+        }
+        
+        if (requiredPermissions.isNotEmpty()) {
+            permissionRequest.launch(requiredPermissions.toTypedArray())
+        }
+    }
+    
+    private fun checkModelInstallation() {
+        lifecycleScope.launch {
+            try {
+                modelsInstalled = assetModelInstaller.areModelsInstalled()
+                if (!modelsInstalled) {
+                    // Models not installed, will need to install on first language load
+                    android.util.Log.i("iTantra", "Models not installed - will install from assets on first use")
+                } else {
+                    android.util.Log.i("iTantra", "Models already installed")
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("iTantra", "Error checking model installation", e)
+                modelsInstalled = false
+            }
         }
     }
     

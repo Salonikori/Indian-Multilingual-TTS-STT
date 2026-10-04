@@ -1,5 +1,7 @@
 # iTantra Android Prototype
 
+[![Build APK](https://github.com/USERNAME/REPOSITORY/actions/workflows/build.yml/badge.svg)](https://github.com/USERNAME/REPOSITORY/actions/workflows/build.yml)
+
 **Hindi/English Offline Speech-to-Text and Text-to-Speech Walkie-Talkie for ISRO**
 
 An Android prototype for ISRO's Smart India Hackathon 2026 Problem Statement 26173: "AI-powered Communication System for Space Operations." This app provides reliable offline voice communication between mission control and field teams using Hindi and English speech recognition and synthesis.
