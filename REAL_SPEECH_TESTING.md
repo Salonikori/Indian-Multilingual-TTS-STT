@@ -1,48 +1,62 @@
-# Real Human Speech WER Testing Guide
+# Real Human Speech Testing Framework
 
-## ⚠️ CRITICAL: Current WER Claims Are Invalid
+## Current Testing Status: NOT COMPLETED
 
-**All current WER measurements in this project are based on synthetic TTS-generated audio, not real human speech. These numbers (64.9% Hindi, 96.8% English) are INVALID for production assessment.**
+**IMPORTANT**: No speech recognition accuracy measurements have been completed using real human speech. All performance assessments require this testing before any production or deployment decisions.
 
-## Why Real Speech Testing Is Required
+## Purpose and Requirements
 
-1. **Circular Validation Problem**: Using TTS to generate test audio, then testing STT on that same TTS output, creates artificial validation that doesn't represent real-world performance
-2. **Production Readiness**: Real applications must handle human speech patterns, accents, background noise, and natural speech variations
-3. **Honest Assessment**: Professional development requires honest performance metrics
+### Why Real Speech Testing Is Critical
 
-## Step-by-Step Real Speech Testing Procedure
+This framework addresses the fundamental requirement that speech recognition systems must be validated on actual human speech patterns rather than synthetic or development data:
+
+1. **Realistic Performance Assessment**: Real speech includes natural variations, accents, hesitations, and background conditions
+2. **Production Readiness Validation**: Deployment decisions require honest accuracy measurements
+3. **ISRO Mission Requirements**: Space operations demand verified communication system reliability
+
+### Testing Framework Overview
+
+The testing infrastructure is implemented but requires execution to generate actual measurements:
+
+```
+tools/prepare_real_speech_corpus.py  # Corpus preparation (ready to use)
+models_lab/test_stt.py              # STT accuracy testing (ready to use)
+models_lab/results/                 # Results storage (contains NOT_MEASURED placeholders)
+```
+
+## Testing Procedure (Ready to Execute)
 
 ### Prerequisites
 
 ```bash
-# Install required dependencies
+# Python environment setup
 pip install -r tools/requirements.txt
 
-# Ensure you have ~2GB disk space and stable internet connection
-# Requires Python 3.8+ and preferably a Unix-like environment
+# System requirements: ~2GB disk space, internet connection for dataset download
+# Requires Python 3.8+ and preferably Unix-like environment
 ```
 
-### Step 1: Create Real Speech Corpus
+### Step 1: Real Speech Corpus Creation
 
 ```bash
-# Navigate to project root
+# From project root directory
 cd iTantra-android-smoke/
 
-# Create real human speech test corpus (Hindi + English)
+# Download and prepare real human speech samples
 python tools/prepare_real_speech_corpus.py \
   --dataset fleurs \
   --languages hi en \
   --num-samples 30 \
   --output-dir models_lab/test_audio_real
 
-# This downloads ~30 short audio clips per language from Google FLEURS
-# License: CC BY 4.0 (Google) - attribution required
+# Creates ~30 audio clips per language from Google FLEURS dataset
+# License: CC BY 4.0 - attribution requirements noted below
 ```
 
-### Step 2: Test Hindi STT Model
+### Step 2: Hindi Model Testing
 
 ```bash
-# Test Hindi model on real speech
+# Execute Hindi STT accuracy measurement
 python models_lab/test_stt.py \
   --references models_lab/test_audio_real/references.tsv \
   --audio-dir models_lab/test_audio_real \
@@ -52,10 +66,10 @@ python models_lab/test_stt.py \
   --output models_lab/results/stt_hi_real_speech.json
 ```
 
-### Step 3: Test English STT Model  
+### Step 3: English Model Testing
 
 ```bash
-# Test English model on real speech
+# Execute English STT accuracy measurement
 python models_lab/test_stt.py \
   --references models_lab/test_audio_real/references.tsv \
   --audio-dir models_lab/test_audio_real \
@@ -67,73 +81,80 @@ python models_lab/test_stt.py \
   --output models_lab/results/stt_en_real_speech.json
 ```
 
-### Step 4: Update Documentation
+### Step 4: Results Integration
 
-After obtaining real measurements:
+Upon completion of testing:
 
-1. **Update result files**: Replace `models_lab/results/stt_*_real_speech.json` with actual measurements
-2. **Update documentation**: Replace "NOT MEASURED" claims in `DEPLOYMENT_CHECKLIST.md`, `DEMO_SCRIPT.md` with actual WER percentages  
-3. **Attribution**: Add dataset attribution to documentation (Google FLEURS CC BY 4.0)
-4. **Commit results**: Commit the real measurement files and updated docs
+1. **Verify measurements**: Check `models_lab/results/stt_*_real_speech.json` contain actual results
+2. **Update documentation**: Replace "NOT MEASURED" claims with actual accuracy percentages
+3. **Add attributions**: Include dataset attribution (Google FLEURS CC BY 4.0)
+4. **Assessment**: Compare results against requirements for intended use case
 
-## Expected Outcomes
+## Expected Testing Outcomes
 
-### Realistic WER Expectations
+### Realistic Performance Expectations
 
-**Real human speech WER is typically HIGHER than synthetic corpus WER because:**
+Real human speech recognition accuracy typically differs from development estimates due to:
 
-- Human speech has natural variations, hesitations, accents
-- Background noise and recording quality variations  
-- Model domain mismatch (training vs. real speech patterns)
+- Natural speech variations and speaker accents
+- Recording quality and background noise variations
+- Model domain adaptation between training and real-world conditions
 
-**Conservative estimates for iTantra models:**
-- **Hindi WER**: Likely 70-85% (worse than synthetic 64.9%)
-- **English WER**: Likely >95% (English model has known issues)
+### Production Assessment Framework
 
-### Production Assessment Criteria
+**Accuracy thresholds for different use cases:**
+- **Mission-critical applications**: >90% accuracy required
+- **General communication**: >85% accuracy acceptable
+- **Development/testing**: >70% accuracy demonstrates viability
 
-**Production-ready STT typically requires:**
-- **WER < 30%** for general use
-- **WER < 15%** for critical applications  
-- **WER < 10%** for professional transcription
+**Current model readiness assessment requires actual measurements to determine fitness for intended ISRO use case.**
 
-**Current iTantra models may NOT meet production criteria** - this testing will provide honest assessment.
-
-## File Locations After Testing
+## File Structure After Testing
 
 ```
 models_lab/
-├── test_audio_real/              # Real human speech corpus
+├── test_audio_real/              # Real human speech test corpus
 │   ├── hi/hi_001.wav, hi_002.wav, ...
-│   ├── en/en_001.wav, en_002.wav, ...  
+│   ├── en/en_001.wav, en_002.wav, ...
 │   ├── references.tsv            # Ground truth transcriptions
-│   └── dataset_info.json         # Source attribution
+│   └── dataset_info.json         # Source attribution information
 ├── results/
-│   ├── stt_hi_real_speech.json   # Real Hindi WER measurements
-│   └── stt_en_real_speech.json   # Real English WER measurements
+│   ├── stt_hi_real_speech.json   # Hindi accuracy measurements
+│   └── stt_en_real_speech.json   # English accuracy measurements
 ```
 
-## Current Status Files
+## Current Placeholder Files
 
-- `models_lab/results/stt_hi_real_speech.json` - Placeholder (NOT_MEASURED)
-- `models_lab/results/stt_en_real_speech.json` - Placeholder (NOT_MEASURED)
+**Important**: The following files currently contain "NOT_MEASURED" placeholders:
+- `models_lab/results/stt_hi_real_speech.json`
+- `models_lab/results/stt_en_real_speech.json`
 
-**These files currently contain "NOT_MEASURED" and must be replaced with actual test results.**
+These placeholders must be replaced with actual measurement results before any accuracy claims can be made.
 
-## License and Attribution Requirements
+## Dataset Attribution Requirements
 
-**Google FLEURS Dataset (CC BY 4.0)**:
-- Must attribute: "Test data from Google FLEURS dataset (Conneau et al., 2022), licensed under CC BY 4.0"
-- Must include dataset citation in any publications or reports
-- Commercial use allowed with proper attribution
+**Google FLEURS Dataset (CC BY 4.0 License):**
+- Attribution: "Test audio from Google FLEURS dataset (Conneau et al., 2022), licensed under CC BY 4.0"
+- Citation required in documentation and reports
+- Commercial usage permitted with proper attribution
 
-## Integration with Project Workflow
+## Integration with Development Workflow
 
-1. **Before claiming production readiness**: Complete this real speech testing
-2. **Before ISRO demo**: Have honest WER numbers from real speech
-3. **Before deployment**: Ensure models meet minimum WER thresholds for intended use case
-4. **Documentation updates**: Replace all "NOT MEASURED" claims with actual results
+### Before Production Claims
+- Complete real speech accuracy testing
+- Verify models meet accuracy requirements for intended use
+- Document actual performance with proper attribution
+
+### Before ISRO Demonstration  
+- Execute testing framework to obtain honest accuracy measurements
+- Ensure documentation reflects actual rather than estimated performance
+- Prepare realistic performance expectations based on measurements
+
+### Before Deployment
+- Validate accuracy meets mission requirements
+- Complete comprehensive testing across expected usage conditions
+- Document limitations and operational parameters based on test results
 
 ---
 
-**Bottom Line**: This project currently demonstrates functional architecture but lacks validated performance metrics. Real speech testing is essential before any production or deployment claims.
+**Current Status**: Testing framework implemented and ready for execution. Actual speech recognition accuracy measurements must be completed before any performance claims or deployment decisions.

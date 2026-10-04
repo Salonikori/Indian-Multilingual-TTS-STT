@@ -4,7 +4,7 @@ import org.json.JSONException
 import org.json.JSONObject
 import java.nio.charset.StandardCharsets
 
-enum class MessageType { SPEECH, ALERT, ACK, PING }
+enum class MessageType { SPEECH, ALERT, ACK, PING, PONG }
 
 data class MessagePayload(
     val version: Int = CURRENT_VERSION,

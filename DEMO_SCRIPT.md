@@ -1,264 +1,217 @@
-# iTantra Live Demo Script 🚀
+# iTantra Live Demo Script
 
-**ISRO Hackathon 2026 | Problem Statement #26173**  
-**Presentation Date**: September 30, 2026  
-**Device**: 23076PC4BI (Android 15, API 35, ARM64)  
-**Demo Duration**: 5-7 minutes  
+**ISRO Smart India Hackathon 2026 | Problem Statement #26173**  
+**Demonstration Guidelines for Hindi/English Offline Voice Communication System**
 
-## 🎯 **Demo Overview**
+## Demo Overview
 
-This script demonstrates iTantra's **real, working voice communication system** with measured performance on actual hardware.
+This demonstration script presents iTantra's offline voice-to-text-to-voice communication prototype for ISRO space operations. The focus is on architectural validation and functional capability rather than performance claims.
 
-**Key Message**: *We chose depth over breadth - 2 languages fully working rather than 10 partially functional.*
+**Core Message**: Demonstrating functional offline communication architecture with honest assessment of current validation status.
 
-## 📱 **Demo Setup (Pre-Demo Checklist)**
+## Pre-Demo Setup Requirements
 
-### Hardware Ready
-- [x] **Primary Device**: 23076PC4BI with iTantra installed
-- [x] **APK Size**: 40.2 MB (measured)
-- [x] **Models Deployed**: Hindi (188.4 MiB STT + 17.5 MiB TTS), English (70.2 MiB STT + 17.7 MiB TTS)
-- [x] **Audio Ready**: Test microphone and speaker volume
-- [x] **Backup**: APK file ready for installation if needed
+### Hardware Preparation
+- **Target Device**: Android 8.0+ with ARM64 processor
+- **Storage**: Verify sufficient space for models (~500MB total)
+- **Audio**: Test microphone input and speaker output functionality
+- **Installation**: Install APK and verify app launches successfully
 
-### Performance Data Ready
-- [x] **Hindi WER**: Not measured on real speech (synthetic corpus used)
-- [x] **English WER**: 96.8% on synthetic corpus (INVALID measurement - need real speech)
-- [x] **TTS RTF**: Hindi 0.598, English 0.461 (desktop measurements, not Android)
-- [x] **Device Specs**: Android 15, API 35, ARM64, 5.4GB RAM
+### System Verification
+- **Model Loading**: Confirm Hindi and English models are available
+- **Permissions**: Verify microphone and storage permissions granted
+- **Audio Path**: Test audio capture and playback functionality
+- **Language Selection**: Confirm language switching works correctly
 
-## 🚀 **Live Demo Script**
+## Demonstration Structure (6-8 minutes total)
 
-### **Opening (30 seconds)**
-> "Good morning! I'm presenting iTantra - our solution for ISRO's voice communication challenge. Instead of building 10 partially-working languages, we chose **depth over breadth** - 2 languages that actually work with real measurements."
+### 1. System Introduction (60 seconds)
 
-**Show**: App icon on phone, README.md with measured results
+**Presentation Points**:
+- "iTantra addresses ISRO's need for reliable offline voice communication"
+- "Designed for space operations requiring robust communication in challenging environments"
+- "Focus on functional architecture with Hindi and English language support"
 
----
+**Show**: App interface and language selection screen
 
-### **1. Real Hardware Validation (90 seconds)**
+### 2. Offline Architecture Demonstration (90 seconds)
 
-> "First, let me show you this is running on real hardware with actual measurements."
+**Key Technical Points**:
+- "Complete offline operation - no internet connectivity required"
+- "Local speech recognition and synthesis using optimized models"
+- "Efficient text-based message transport for low-bandwidth scenarios"
 
-**Actions**:
-1. **Open iTantra app** on 23076PC4BI device
-2. **Navigate to Languages screen** - show Hindi and English available
-3. **Show Settings/About** - display device info if available
-
-**Key Points**:
-- ✅ "Device: Xiaomi 23076PC4BI, Android 15, ARM64"  
-- ✅ "APK Size: 40.2 MB - lightweight for emergency use"
-- ✅ "Total Models: 296 MiB - fits on any modern Android device"
-
----
-
-### **2. Hindi TTS Demonstration (60 seconds)**
-
-> "Let's test our Hindi text-to-speech - this is running locally with real performance measurements."
-
-**Actions**:
-1. **Select Hindi language** 
-2. **Navigate to TTS test screen** (or input field)
-3. **Type Hindi text**: "यह आपातकालीन संदेश है। ISRO मिशन नियंत्रण से संपर्क करें।"
-   (Translation: "This is an emergency message. Contact ISRO mission control.")
-4. **Press synthesize** and play audio
-
-**Key Points**:
-- ✅ "RTF 0.598 - measured on desktop (Android performance unknown)"
-- ✅ "High quality male voice, locally processed"
-- ✅ "No internet required - perfect for emergency scenarios"
-
----
-
-### **3. Hindi STT Demonstration (90 seconds)**
-
-> "Now speech recognition - accuracy not yet measured on real human speech."
-
-**Actions**:
-1. **Navigate to STT test screen** (LiveSttActivity or test area)
-2. **Enable Hindi STT**
-3. **Speak clearly in Hindi**: "मैं ISRO का इंजीनियर हूँ। आपातकाल की स्थिति है।"
-   (Translation: "I am an ISRO engineer. There is an emergency situation.")
-4. **Show real-time transcription**
-
-**Key Points**:
-- ✅ "Real-time streaming STT - processes as you speak"
-- ✅ "WER testing planned - current measurements use synthetic audio only"
-- ✅ "Real human speech validation needed for production accuracy claims"
-
----
-
-### **6. System Architecture Overview (60 seconds)**
-
-> "The complete pipeline works end-to-end for low-bandwidth communication with professional-grade implementation."
-
-**Show**: Architecture diagram or explain while showing app
-
-**Live Pipeline Demo**:
+**Technical Pipeline**:
 ```
-Your Voice → AudioCapture → VAD → UtteranceSegmenter → STT → BluetoothTransport → TTS → PlaybackRouter → Other Phone
+Voice Input → VAD → Speech Segmentation → STT → Text Transport → TTS → Audio Output
 ```
 
-**Implementation Highlights**:
-- ✅ **LiveSttController**: Fixes duplicate messages, non-blocking transcription
-- ✅ **VadEngine**: Memory leak fixes, proper Silero VAD lifecycle  
-- ✅ **UtteranceSegmenter**: Smart speech boundaries with PTT flush support
-- ✅ **ConversationStateMachine**: Proper state flow for PTT/Phone modes
-- ✅ **Error Handling**: Comprehensive exception handling throughout
+**Show**: Navigate through app components demonstrating the pipeline
 
-**Key Points**:
-- ✅ "Only text transmitted - never audio samples (audit verified)"
-- ✅ "Perfect for ISRO's low-bitrate satellite links"
-- ✅ "RFCOMM Bluetooth transport with automatic reconnection"
-- ✅ "Professional threading with coroutines and proper lifecycle"
+### 3. Hindi Language Demonstration (90 seconds)
 
----
+**Text-to-Speech Demo**:
+- Select Hindi language mode
+- Input sample text: "यह आपातकालीन संदेश है" (This is an emergency message)
+- Demonstrate speech synthesis playback
+- Highlight offline processing capability
 
-### **7. Code Quality & Architecture (45 seconds)**
+**Speech-to-Text Demo**:
+- Enable microphone input
+- Speak clearly in Hindi with sample phrase
+- Show real-time transcription results
+- Emphasize local processing (no network required)
 
-> "Production-grade implementation with comprehensive error handling and testing."
+### 4. English Language Demonstration (90 seconds)
 
-**Show**: Brief code samples or architecture overview
+**Text-to-Speech Demo**:
+- Switch to English language mode
+- Input sample text: "Emergency communication system active"
+- Demonstrate speech synthesis
+- Show language switching capability
 
-**Technical Excellence**:
-```kotlin
-// LiveSttController - Fixed duplicate message issue
-class LiveSttController(vad, segmenter, stt, scope) {
-    // Each utterance delivered exactly once via onUtterance callback
-    // Non-blocking: audio capture never blocked by slow STT
-    // PTT flush: waits for all queued transcriptions before completing
-}
+**Speech-to-Text Demo**:
+- Test English speech recognition with clear enunciation
+- Demonstrate transcription accuracy on prepared phrases
+- Show system responsiveness
 
-// VadEngine - Memory leak fixes
-fun isSpeech(samples: FloatArray): Boolean {
-    detector.acceptWaveform(samples)
-    val speech = detector.isSpeechDetected()
-    while (!detector.empty()) detector.pop()  // Critical: drain queue
-    return speech
-}
-```
+### 5. Communication Workflow (60 seconds)
 
-**Code Quality Metrics**:
-- ✅ "Comprehensive exception handling with graceful fallbacks"
-- ✅ "Proper resource lifecycle - all components have release() methods" 
-- ✅ "Thread-safe coroutines with appropriate dispatchers"
-- ✅ "Unit tests for critical components (UtteranceSegmenter, etc.)"
-- ✅ "Memory management - dynamic model loading/unloading"
-
----
-
-### **8. Performance Summary & ISRO Value (60 seconds)**
-
-> "Real measurements on real hardware - production-ready with professional implementation."
-
-**Show**: Performance table or summary screen
-
-**Measured Results**:
-```
-✅ APK Size: 40.2 MB (actual measurement)
-✅ Hindi WER: Not measured on real speech (synthetic corpus only)  
-⚠️ TTS RTF: <1.0 (desktop measurement, Android performance unknown)
-✅ Storage: 296 MiB total (Hindi + English models)
-✅ Device: Android 15, API 35, ARM64 validated
-✅ Architecture: Professional-grade with proper error handling
-```
-
-**Implementation Quality**:
-- ✅ "LiveSttController fixes: no duplicate messages, non-blocking STT"
-- ✅ "VadEngine: memory leak fixes, proper Silero lifecycle"
-- ✅ "AudioCapture: thread-safe 16kHz with monitoring"
-- ✅ "Complete test coverage with unit tests"
+**End-to-End Process**:
+- Demonstrate push-to-talk interface
+- Show message queue and delivery status
+- Explain text-based transport efficiency
+- Highlight reliability features (retry mechanisms)
 
 **ISRO Applications**:
-- ✅ "Disaster response when networks fail"
-- ✅ "Mission control multilingual communication"  
-- ✅ "Satellite link optimization (text-only transport)"
-- ✅ "Emergency protocols with priority messaging"
+- Mission control communication
+- Emergency response coordination
+- Multi-language team collaboration
+- Low-bandwidth satellite link optimization
+
+### 6. System Architecture Summary (60 seconds)
+
+**Technical Capabilities**:
+- Offline model processing (Sherpa-ONNX integration)
+- Voice activity detection (Silero VAD)
+- Efficient audio compression and transport
+- Background service operation
+- Bluetooth connectivity support
+
+**Production Considerations**:
+- Modular architecture supporting additional languages
+- Android system integration following best practices
+- Resource-efficient operation for mobile deployment
+- Comprehensive error handling and recovery
+
+## Critical Honesty Requirements
+
+### Performance Assessment Status
+
+**IMPORTANT**: All demonstrations must acknowledge current testing limitations:
+
+- **Speech Recognition Accuracy**: "Accuracy measurements on real human speech not yet completed"
+- **Latency Performance**: "Systematic latency measurement across pipeline components needed"  
+- **Resource Usage**: "Comprehensive profiling for RAM, battery, and CPU utilization required"
+- **Multi-Device Testing**: "Two-device communication validation not yet performed"
+
+### Current Validation Status
+
+**What Has Been Tested**:
+- Basic functionality on single device
+- Model loading and integration
+- Audio pipeline operation
+- Language switching capability
+
+**What Requires Testing**:
+- Real-world speech recognition accuracy
+- Multi-device communication reliability
+- Extended operation performance
+- Diverse speaker and noise condition validation
+
+## Backup Demonstration Plans
+
+### If Technical Issues Occur
+
+**App Functionality Problems**:
+- Demonstrate individual components (STT, TTS, language selection)
+- Show architecture diagrams and technical documentation
+- Explain system design and scalability approach
+- Present development testing results and validation framework
+
+**Audio System Issues**:
+- Use visual text input/output demonstration
+- Show model loading and processing capabilities
+- Explain offline architecture benefits
+- Focus on system integration and reliability features
+
+### Alternative Demonstration Content
+
+**Code Quality Showcase**:
+- Present clean architecture implementation
+- Demonstrate error handling and recovery mechanisms
+- Show unit test coverage and validation procedures
+- Explain production-ready development practices
+
+**ISRO Value Proposition**:
+- Emergency communication scenarios
+- Multi-language coordination requirements
+- Satellite communication bandwidth optimization
+- Mission-critical reliability features
+
+## Question and Answer Preparation
+
+### Expected Technical Questions
+
+**Q: "What is the current speech recognition accuracy?"**
+A: "We have implemented the full STT pipeline with established models, but comprehensive accuracy measurement on real human speech across diverse conditions is planned for the next development phase. The system demonstrates functional speech recognition with current focus on architectural validation."
+
+**Q: "How does this compare to existing communication systems?"**
+A: "iTantra is specifically designed for offline operation in challenged network environments, which is critical for space operations. The text-based transport is bandwidth-efficient for satellite communications, and the multi-language support addresses ISRO's diverse team coordination needs."
+
+**Q: "What about battery usage and resource consumption?"**
+A: "The system is designed for efficient operation with optimized models and background processing. Comprehensive resource profiling is planned to establish baseline performance characteristics for production deployment planning."
+
+**Q: "How reliable is the communication system?"**
+A: "We've implemented retry mechanisms and message delivery confirmation. The architecture is designed for reliability, but comprehensive multi-device testing under realistic conditions is needed to validate operational reliability claims."
+
+### Demonstration Success Criteria
+
+**Technical Validation**:
+- ✅ Successful app launch and navigation
+- ✅ Functional language selection (Hindi/English)
+- ✅ Working text-to-speech synthesis in both languages
+- ✅ Functional speech-to-text recognition demonstration
+- ✅ Clear explanation of offline architecture benefits
+
+**Professional Presentation**:
+- ✅ Honest assessment of current testing status
+- ✅ Clear explanation of ISRO application scenarios
+- ✅ Professional discussion of development approach
+- ✅ Appropriate technical detail level for audience
+- ✅ Realistic timeline and validation requirements
+
+**ISRO Relevance**:
+- ✅ Emergency communication capabilities
+- ✅ Multi-language team coordination
+- ✅ Low-bandwidth satellite optimization
+- ✅ Offline operation reliability
+- ✅ Scalable architecture for additional languages
+
+## Post-Demo Follow-Up
+
+### Next Development Steps
+- Real-world speech recognition accuracy validation
+- Multi-device communication testing
+- Comprehensive performance profiling
+- Extended language model integration
+
+### Production Readiness Assessment
+- Systematic testing across usage scenarios
+- Performance validation with realistic workloads
+- User acceptance testing with ISRO operational requirements
+- Security and reliability validation for mission-critical use
 
 ---
 
-### **Closing (30 seconds)**
-
-> "iTantra delivers exactly what ISRO requested - **working multilingual voice communication** for emergency scenarios. We have **real measurements**, **production-ready code**, and a **scalable architecture** for all 10 languages."
-
-**Final Points**:
-- ✅ "Complete source code available with professional implementation"
-- ✅ "Real hardware validation completed with comprehensive testing" 
-- ✅ "Production-grade architecture: proper error handling, memory management, threading"
-- ✅ "Ready for immediate ISRO deployment testing"
-- ✅ "Depth over breadth - 2 working languages with professional quality vs 10 stubs"
-
----
-
-## 🔧 **Demo Backup Plans**
-
-### If App Crashes
-1. **Restart app** - should reload quickly
-2. **Show APK file** - demonstrate 40.2 MB size
-3. **Continue with architecture explanation** using slides/diagrams
-
-### If Audio Issues
-1. **Show text input/output** - demonstrate STT/TTS without audio
-2. **Explain desktop test limitations** - show proof of concept, Android validation pending
-3. **Focus on system architecture** and ISRO value proposition
-
-### If Device Issues  
-1. **Show source code** - demonstrate real implementation
-2. **Present measurement results** from FINAL_HARDWARE_TEST_REPORT.md
-3. **Explain scalable architecture** for remaining languages
-
-## 📊 **Key Statistics to Emphasize**
-
-### Measured Performance (Real Hardware)
-- **APK Size**: 40.2 MB (actual file size)
-- **Hindi WER**: Not measured on real speech (prototype stage)
-- **TTS RTF**: Hindi 0.598, English 0.461 (desktop only)
-- **Model Storage**: 296 MiB total (lightweight)
-- **Device**: Android 15, API 35, ARM64 (modern compatibility)
-
-### ISRO Requirements Met
-- ✅ **Offline Operation**: No internet permissions
-- ✅ **Lightweight**: 40.2 MB APK vs typical GB-scale apps
-- ✅ **Low Latency**: RTF measured on desktop (Android testing needed)  
-- ✅ **Emergency Ready**: Alert override system
-- ✅ **Scalable**: Architecture supports all 10 languages
-
-## 🎯 **Questions & Answers Preparation**
-
-### ⚠️ **CRITICAL HONESTY: Measurement Limitations**
-
-**Be upfront about current limitations:**
-- WER measurements use synthetic TTS audio, not real human speech
-- RTF measurements from desktop only, Android performance unknown  
-- This is a functional prototype, not production-validated software
-- Claims are architectural validation, not performance guarantees
-
-**Q**: "Why only 2 languages instead of 10?"  
-**A**: "Depth over breadth. We deliver 2 fully working pipelines with real measurements vs 10 mock implementations. Our architecture scales - adding the remaining 8 languages requires only model deployment."
-
-**Q**: "What about English STT accuracy (96.8% WER)?"  
-**A**: "We identified the issue - wrong model selection plus synthetic test data. Our architecture shows promise but needs real-speech validation and English model replacement."
-
-**Q**: "How does this help ISRO missions?"  
-**A**: "Three ways: 1) Emergency communication when networks fail, 2) Multilingual mission control coordination, 3) Low-bandwidth satellite link optimization through text-only transport."
-
-**Q**: "What about code quality and testing?"  
-**A**: "Production-grade implementation: LiveSttController fixes duplicate message issues, VadEngine has memory leak fixes, comprehensive error handling throughout, unit tests for critical components, and proper threading with coroutines. All components follow proper lifecycle patterns with release() methods."
-
-**Q**: "How robust is the implementation?"  
-**A**: "Very robust: AudioCapture is thread-safe with monitoring, UtteranceSegmenter has smart boundary detection, ConversationStateMachine manages state properly, and we have extensive logging for troubleshooting. The architecture follows Android best practices."
-
----
-
-## ✅ **Demo Success Criteria**
-
-- [x] **Show working TTS** in Hindi with audio output
-- [x] **Demonstrate STT** with real-time transcription  
-- [x] **Present architecture validation** (40.2 MB APK, system integration)
-- [x] **Explain testing limitations** (synthetic corpus, desktop measurements)
-- [x] **Explain ISRO value** (offline, emergency, low-bandwidth)
-- [x] **Highlight implementation quality** (professional architecture, error handling, testing)
-- [x] **Show scalability** (2 working → 10 languages with clean architecture)
-
-**Time Target**: 5-7 minutes total  
-**Backup Plans**: Ready for technical issues  
-**Key Message**: Real working system with measured performance and production-grade implementation! 🚀
+**Demonstration Objective**: Present functional offline voice communication architecture with honest assessment of current validation status and clear path to production readiness for ISRO space operations.

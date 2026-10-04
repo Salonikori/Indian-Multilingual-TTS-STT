@@ -235,6 +235,10 @@ class BluetoothTestActivity : ComponentActivity() {
                 // Pings are handled internally, just log
                 println("BluetoothTest: Received ping")
             }
+            MessageType.PONG -> {
+                // Pongs are handled internally, just log
+                println("BluetoothTest: Received pong")
+            }
         }
     }
     

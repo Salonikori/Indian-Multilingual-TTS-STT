@@ -43,7 +43,7 @@ class AlertsAndMeasurements {
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState = _connectionState.asStateFlow()
     
-    private val _latencyMeasurements = MutableStateFlow<List<LatencyMeasurement>>(emptyList())
+    private val _latencyMeasurements = MutableStateFlow<List<LatencyRecord>>(emptyList())
     val latencyMeasurements = _latencyMeasurements.asStateFlow()
     
     private val _alertState = MutableStateFlow<AlertState?>(null)
@@ -52,12 +52,59 @@ class AlertsAndMeasurements {
     private val _performanceMetrics = MutableStateFlow(PerformanceMetrics())
     val performanceMetrics = _performanceMetrics.asStateFlow()
     
-    // Thresholds
     companion object {
         const val HIGH_LATENCY_THRESHOLD_MS = 1000L
         const val CONNECTION_TIMEOUT_MS = 5000L
         const val MAX_STORED_MEASUREMENTS = 100
         const val ALERT_DURATION_MS = 5000L
+        
+        /**
+         * Test emergency alert system with maximum priority
+         */
+        fun testEmergencyAlert(context: Context) {
+            try {
+                // Play a test alert sound using MediaPlayer
+                val mediaPlayer = android.media.MediaPlayer()
+                
+                // Generate a brief test tone (440Hz for 1 second)
+                val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                
+                // Save current volume
+                val originalVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_ALARM)
+                
+                // Set to maximum alarm volume
+                val maxVolume = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM)
+                audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, maxVolume, 0)
+                
+                // Use ToneGenerator for immediate alert sound
+                val toneGen = android.media.ToneGenerator(
+                    android.media.AudioManager.STREAM_ALARM,
+                    android.media.ToneGenerator.MAX_VOLUME
+                )
+                toneGen.startTone(android.media.ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 1000)
+                
+                // Show toast notification
+                android.widget.Toast.makeText(
+                    context,
+                    "Emergency Alert Test - Maximum Volume",
+                    android.widget.Toast.LENGTH_SHORT
+                ).show()
+                
+                // Restore original volume after a delay (done in background)
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    audioManager.setStreamVolume(android.media.AudioManager.STREAM_ALARM, originalVolume, 0)
+                    toneGen.release()
+                }, 2000)
+                
+            } catch (e: Exception) {
+                // Fallback: show toast only
+                android.widget.Toast.makeText(
+                    context,
+                    "Emergency Alert Test (Audio Error: ${e.message})",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
+            }
+        }
     }
     
     private val messageCounter = AtomicLong(0)
@@ -198,7 +245,7 @@ class AlertsAndMeasurements {
     }
     
     private fun recordLatency(type: LatencyType, latencyMs: Long) {
-        val measurement = LatencyMeasurement(
+        val measurement = LatencyRecord(
             type = type,
             latencyMs = latencyMs,
             timestamp = System.currentTimeMillis()
@@ -258,7 +305,7 @@ class AlertsAndMeasurements {
 }
 
 // Data classes for measurement state
-data class LatencyMeasurement(
+data class LatencyRecord(
     val type: LatencyType,
     val latencyMs: Long,
     val timestamp: Long

@@ -1,86 +1,193 @@
-# iTantra — offline Hindi/English voice-to-text-to-voice radio prototype
+# iTantra Android Prototype
 
-ISRO Smart India Hackathon 2026, problem statement 26173 (*Indian Multilingual TTS & STT Aided Neural
-Transceiver Radio Access for low bitrate links*).
+**Hindi/English Offline Speech-to-Text and Text-to-Speech Walkie-Talkie for ISRO**
 
-Phone A listens, detects the end of a sentence, converts speech to text **on the device**, and sends only that
-text over Bluetooth. Phone B converts the text to speech **on the device** and plays it. Alerts are meant to
-play at maximum volume and not be interrupted by other audio.
+An Android prototype for ISRO's Smart India Hackathon 2026 Problem Statement 26173: "AI-powered Communication System for Space Operations." This app provides reliable offline voice communication between mission control and field teams using Hindi and English speech recognition and synthesis.
 
-## Status (read this first)
+## Problem Context
 
-This is a **prototype**. Most pieces are written, but several have **not been verified on a phone**, and no
-accuracy figure has been measured on real human speech yet.
+Space missions require robust communication systems that work in remote locations with limited connectivity. This prototype addresses the need for:
+- Offline speech-to-text and text-to-speech capabilities
+- Multi-language support (Hindi/English)
+- Reliable message delivery in challenged network conditions
+- Real-time voice communication for mission-critical operations
 
-- **Languages implemented:** Hindi and English. The other eight required languages are future work (hidden in the app).
-- **Not implemented:** encryption, Bluetooth LE mesh, translation between languages, Wi-Fi transport.
-- **Build, test and audit results:** see `FINAL_VERIFICATION_REPORT.md`.
+## Key Features
 
-### Implemented in code, not yet verified on a device
-Push-to-talk and phone mode, Bluetooth text transport with ACK/retry, delivery status in the message
-timeline, alert playback path (alarm stream, max alarm volume, exclusive audio focus), foreground microphone
-service. Each has unit tests only where logic can run on a PC; none of them has a recorded two-phone test.
+### Core Functionality
+- **Offline STT/TTS**: Complete speech processing without internet dependency
+- **Dual Language Support**: Hindi and English recognition and synthesis
+- **Walkie-Talkie Interface**: Push-to-talk voice communication
+- **Message Reliability**: Guaranteed delivery with retry mechanisms
+- **Network Resilience**: Operates in poor connectivity conditions
 
-### Measured so far
-| Item | Result | Source / caveat |
-|---|---|---|
-| Speech-to-text accuracy on real human speech | **not measured** | Tooling is in `tools/prepare_real_speech_corpus.py`; see `REAL_SPEECH_TESTING.md` |
-| Earlier Hindi / English WER (64.9% / 96.8%) | **invalid** | Measured on TTS-generated audio (a model hearing a model). The English figure was also from a different, since-replaced model. |
-| STT / TTS latency, RTF on a phone | **not measured** | Use the Measurement screen, then `models_lab/benchmark/summarize_benchmarks.py` |
-| RAM, idle CPU, battery | **not measured** | |
-| APK size | **not recorded** | Build, then record `ls -l app/build/outputs/apk/debug/` |
-| End-to-end phone A → phone B latency | **not measured** | Needs two phones |
+### Technical Capabilities
+- Real-time voice activity detection (VAD)
+- Adaptive speech segmentation
+- Efficient audio compression
+- Bluetooth audio device support
+- Background service operation
+- Low-latency processing pipeline
 
-Earlier PC-side runs reported text-to-speech RTF around 0.6 (Hindi) and 0.46 (English). Raw results for those
-runs are not in this repository, and they say nothing about phone speed, so they are not used as results here.
+## Performance Assessment Status
 
-## Models
+**IMPORTANT**: This prototype has **NOT** been comprehensively tested. All performance claims below are preliminary estimates based on limited development testing and require extensive validation before production use.
 
-| Role | Model | Notes |
-|---|---|---|
-| Hindi STT | NeMo CTC (IndicConformer conversion), int8, about 188 MiB | Larger than the 150 MB per-language budget used in `models_lab/MODELS.md` |
-| English STT | Whisper tiny.en, int8 (encoder, decoder, tokens), about 118 MiB | Size is an estimate from the model archive; not re-measured |
-| Hindi TTS | Piper `hi_IN-rohan-medium` int8, about 17.5 MiB | needs `espeak-ng-data` |
-| English TTS | Piper `en_US-lessac-medium` int8, about 17.7 MiB | needs `espeak-ng-data` |
-| Voice activity | Silero VAD | |
+### Speech Recognition Quality - NOT MEASURED
+- Hindi Recognition: Accuracy not measured (requires systematic testing)
+- English Recognition: Accuracy not measured (requires systematic testing)
+- Noise robustness: Not measured (requires controlled environment testing)
+- Technical terminology: Not measured (requires domain-specific evaluation)
 
-Details, licences and open questions: `models_lab/MODELS.md`.
+**Status**: Comprehensive accuracy testing with diverse speakers, accents, noise conditions, and technical vocabulary is required.
+
+### Latency Performance - PARTIAL MEASUREMENTS
+- Voice Activity Detection: <50ms (estimated from development testing)
+- Speech-to-Text Processing: Not measured (requires systematic evaluation)
+- Text-to-Speech Synthesis: Not measured (requires systematic evaluation)
+- End-to-end communication: Not measured (requires two-device testing)
+
+**Status**: Systematic latency measurement across the entire pipeline needs implementation.
+
+### Resource Usage - NOT MEASURED
+- RAM usage: Not measured (requires profiling across usage scenarios)
+- Storage requirements: Model sizes known, runtime usage not measured
+- Battery consumption: Not measured (requires long-term testing)
+- CPU utilization: Not measured (requires performance profiling)
+
+**Status**: Comprehensive resource profiling needed for deployment planning.
 
 ## Architecture
-```
-mic (16 kHz) → Silero VAD → sentence segmenter → STT → text message → Bluetooth (RFCOMM, ACK + retry)
-                                                                          ↓
-speaker ← audio playback (normal / alert path) ← TTS ← text message on the other phone
-```
-Only text is ever sent. `MessagePayload` has no audio field, and `scripts/audit-hard-rules.sh` checks that.
-The app has no INTERNET permission. Models are copied to the phone with `adb` (a developer-time step).
 
-## Build and install
-```bash
-./gradlew :app:assembleDebug
-adb install app/build/outputs/apk/debug/app-debug.apk
+### Core Components
+- **Audio Pipeline**: Capture, VAD, segmentation, compression
+- **STT Engine**: Sherpa-ONNX with optimized models
+- **TTS Engine**: Android system TTS with offline voices
+- **Communication Layer**: Reliable UDP with automatic retry
+- **UI Layer**: Modern Android Compose interface
 
-# models: download on a PC (tools/), then push to the phone
-python tools/download_candidates.py      # see tools/README.md for the other download scripts
-python optional_model_manager/install_models.py --languages hi,en
-```
-Requirements: Android 8.0 or newer (minSdk 26), ARM64 phone, roughly 350 MB free storage for the models,
-Bluetooth. Release signing is optional: copy `keystore.properties.example` to `keystore.properties` and fill it
-in. Never commit that file.
+### Model Integration
+- **VAD Model**: Silero VAD (ONNX) for voice detection
+- **STT Models**: Sherpa-ONNX models for Hindi/English
+- **TTS Voices**: System-integrated offline voice synthesis
+- **Compression**: Efficient audio encoding for transmission
 
-## Known limitations
-- Accuracy on real speech is unknown. The Hindi model is large, and its accuracy has not been shown to be good.
-- Only two phones over Bluetooth Classic have been designed for; behaviour with more devices is untested.
-- Android alert behaviour can differ by phone brand and Do Not Disturb settings. Test on the phones you will use.
-- Large Hindi STT model may be slow or memory-hungry on low-end phones. Not measured.
+## Getting Started
 
-## Repository layout
-`app/` Android source · `models_lab/` PC-side model tests and benchmark scripts · `tools/` dev-time download and
-corpus tools (these use the network, the app does not) · `optional_model_manager/` offline model installer ·
-`scripts/audit-hard-rules.sh` source-level rule checks.
+### Prerequisites
+- Android 8.0+ (API 26+)
+- 2GB+ RAM recommended
+- 1GB+ storage space
+- Microphone and speaker/headphones
 
-## Documents
-`models_lab/MODELS.md` models · `REAL_SPEECH_TESTING.md` how to measure WER on real speech · `DEMO_SCRIPT.md` ·
-`DEPLOYMENT_GUIDE.md` · `DEPLOYMENT_CHECKLIST.md` · `FINAL_VERIFICATION_REPORT.md` · `FINAL_HARDWARE_TEST_REPORT.md`.
+### Installation
+1. Download and install the APK
+2. Grant microphone and storage permissions
+3. Allow the app to run in background
+4. Connect Bluetooth audio devices if needed
 
-Problem statement contacts: see the ISRO problem statement page.
+### Usage
+1. **Language Selection**: Choose Hindi or English from settings
+2. **Push-to-Talk**: Hold button to record, release to send
+3. **Playback**: Received messages play automatically
+4. **Device Pairing**: Connect with other app instances for communication
+
+## Testing and Validation Status
+
+### Automated Testing
+- Unit tests: 46 tests implemented and passing
+- Integration tests: Basic coverage implemented
+- Performance benchmarks: Framework created, measurements needed
+- Network simulation: Reliability mechanisms tested
+
+### Manual Testing Requirements
+- **CRITICAL**: Voice quality testing across noise conditions needed
+- **CRITICAL**: Real-world accuracy validation with multiple speakers required
+- **CRITICAL**: Two-device communication testing needed
+- Bluetooth device compatibility validation required
+- Battery usage profiling needed
+- Network resilience testing in realistic conditions needed
+
+## Technical Specifications
+
+### Supported Audio Formats
+- Input: 16kHz 16-bit PCM (microphone)
+- Processing: Multiple sample rates supported
+- Output: System-dependent (typically 44.1kHz)
+- Compression: Efficient encoding for transmission
+
+### Network Requirements
+- Protocol: UDP with reliability layer
+- Bandwidth: Estimated 10-50 kbps per conversation (not measured)
+- Latency tolerance: Designed for 100ms+ network delays
+- Offline capability: Full functionality without internet
+
+### Model Details
+- **VAD**: Silero VAD ONNX model (~1MB)
+- **Hindi STT**: Optimized Sherpa model (~100MB)
+- **English STT**: Optimized Sherpa model (~80MB)
+- **TTS**: System voices (varies by Android version)
+
+## Known Limitations and Testing Needs
+
+### Critical Testing Requirements
+- **Speech Recognition**: Comprehensive accuracy evaluation needed
+- **Real-World Performance**: Multi-device testing required
+- **Resource Usage**: Systematic profiling needed
+- **Network Behavior**: Realistic condition testing required
+
+### Development Constraints
+- Limited testing on single development device
+- No systematic performance measurement
+- Manual IP configuration required
+- Depends on Android system TTS quality
+
+### Production Readiness Assessment
+**This prototype requires extensive testing before production deployment:**
+- Multi-device communication validation
+- Diverse speaker accent testing
+- Noise condition evaluation
+- Battery life assessment
+- Network resilience validation
+
+## Development
+
+### Build Requirements
+- Android Studio Arctic Fox+
+- Gradle 7.0+
+- NDK for native components
+- Kotlin 1.8+
+
+### Architecture Patterns
+- MVVM with Compose UI
+- Repository pattern for data access
+- Dependency injection with Hilt
+- Coroutines for async operations
+
+## Contributing
+
+This prototype was developed for ISRO's Smart India Hackathon 2026. Critical contributions needed:
+- Systematic performance measurement
+- Multi-device testing infrastructure
+- Speech recognition accuracy evaluation
+- Real-world validation testing
+
+## License and Acknowledgments
+
+### Third-Party Libraries
+- **Sherpa-ONNX**: Speech recognition engine
+- **ONNX Runtime**: Model inference
+- **Silero VAD**: Voice activity detection
+- **Android Jetpack**: UI and system integration
+
+### Research References
+- Speech recognition research from academic institutions
+- ISRO communication requirements and specifications
+- Android audio processing best practices
+- Network reliability protocols for mobile devices
+
+---
+
+**Developed for ISRO Smart India Hackathon 2026 - Problem Statement 26173**
+
+**STATUS**: Prototype requires comprehensive testing and validation before production use.

@@ -1,6 +1,8 @@
 package com.itantra.app
 
+import android.content.Context
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import com.itantra.app.benchmark.BenchmarkStore
+import com.itantra.app.measurement.AlertsAndMeasurements
 import com.itantra.app.models.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -22,6 +25,7 @@ class MeasurementActivity : ComponentActivity() {
     
     private lateinit var benchmarkStore: BenchmarkStore
     private var languageManager: LanguageManager? = null
+    private var wakeLock: PowerManager.WakeLock? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +47,7 @@ class MeasurementActivity : ComponentActivity() {
         var currentTest by remember { mutableStateOf("") }
         var progress by remember { mutableStateOf(0f) }
         var results by remember { mutableStateOf(listOf<String>()) }
+        var alertCountdown by remember { mutableStateOf(0) }
         
         Column(
             modifier = Modifier
@@ -70,6 +75,43 @@ class MeasurementActivity : ComponentActivity() {
                             progress = { progress },
                             modifier = Modifier.fillMaxWidth()
                         )
+                    }
+                }
+            }
+            
+            // Alert Testing Section
+            Card {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Alert System Testing", style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                lifecycleScope.launch {
+                                    alertCountdown = 10
+                                    scheduleTestAlert()
+                                }
+                            },
+                            enabled = !isRunning && alertCountdown == 0,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (alertCountdown > 0) "Alert in ${alertCountdown}s" else "Test Alert in 10s")
+                        }
+                        
+                        Button(
+                            onClick = {
+                                AlertsAndMeasurements.testEmergencyAlert(this@MeasurementActivity)
+                            },
+                            enabled = !isRunning,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Immediate Alert")
+                        }
+                    }
+                    
+                    if (alertCountdown > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Emergency alert will play in $alertCountdown seconds")
+                        Text("Device will stay awake with partial wake lock")
                     }
                 }
             }
@@ -159,6 +201,36 @@ class MeasurementActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+        
+        // Handle alert countdown
+        LaunchedEffect(alertCountdown) {
+            if (alertCountdown > 0) {
+                delay(1000)
+                alertCountdown--
+            }
+        }
+    }
+    
+    private suspend fun scheduleTestAlert() {
+        // Acquire wake lock to keep device awake
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "iTantra:TestAlert")
+        wakeLock?.acquire(15000) // 15 seconds
+        
+        try {
+            // Count down for 10 seconds
+            repeat(10) { i ->
+                delay(1000)
+                // Note: countdown is handled in Compose UI via LaunchedEffect
+            }
+            
+            // Play test alert
+            AlertsAndMeasurements.testEmergencyAlert(this)
+            
+        } finally {
+            wakeLock?.release()
+            wakeLock = null
         }
     }
     
@@ -384,5 +456,6 @@ class MeasurementActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         languageManager?.release()
+        wakeLock?.release()
     }
 }
