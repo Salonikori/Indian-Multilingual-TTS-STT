@@ -29,3 +29,4 @@ keystore.properties
 *.p12
 *.bak
 build-errors.txt
+downloads/

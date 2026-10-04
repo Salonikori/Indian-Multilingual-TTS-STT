@@ -86,7 +86,9 @@ class LanguageManager(private val context: Context) {
                         whisper = if (spec.sttArchitecture == SttArchitecture.WHISPER)
                             OfflineWhisperModelConfig(
                                 encoder = sttModel.absolutePath,
-                                decoder = File(sttModel.parentFile, "decoder.int8.onnx").absolutePath
+                                decoder = File(sttModel.parentFile, "decoder.int8.onnx").absolutePath,
+                                language = spec.whisperLanguage,
+                                task = "transcribe"
                             ) else OfflineWhisperModelConfig(),
                         tokens = sttTokens.absolutePath,
                         numThreads = 2,

@@ -58,6 +58,10 @@ android {
         compose = true
     }
 
+    androidResources {
+        noCompress += listOf("onnx")
+    }
+
     buildTypes {
         release {
             // Only apply signing config if keystore.properties exists and has all required values

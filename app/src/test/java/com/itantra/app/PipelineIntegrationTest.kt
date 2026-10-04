@@ -186,7 +186,7 @@ class PipelineIntegrationTest {
         
         val hindi = LanguageRegistry.ALL_LANGUAGES.find { it.code == "hi" }!!
         assertEquals("Hindi", hindi.displayName)
-        assertEquals("models/hi/stt/model.int8.onnx", hindi.sttModelRelativePath)
+        assertEquals("models/hi/stt/encoder.int8.onnx", hindi.sttModelRelativePath)
         assertEquals("models/hi/tts/model.onnx", hindi.ttsModelRelativePath)
         
         val english = LanguageRegistry.ALL_LANGUAGES.find { it.code == "en" }!!

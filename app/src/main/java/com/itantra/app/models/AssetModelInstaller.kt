@@ -45,7 +45,7 @@ class AssetModelInstaller(private val context: Context) {
             val supportedLanguages = LanguageRegistry.languages
             supportedLanguages.all { spec ->
                 ModelFiles.installStatusInFilesDir(context, spec)
-            }
+            } && ModelFiles.resolve(context, VAD_PATH).isFile
         } catch (e: Exception) {
             Log.w(tag, "Error checking install status", e)
             false
@@ -63,7 +63,7 @@ class AssetModelInstaller(private val context: Context) {
         try {
             // Check if already installed via preferences (faster than file check)
             val installVersion = prefs.getInt("install_version", 0)
-            val currentVersion = 1 // Increment when model files change
+            val currentVersion = 2 // Increment when model files change
             
             if (installVersion >= currentVersion && areModelsInstalled()) {
                 Log.i(tag, "Models already installed (version $installVersion)")
@@ -193,69 +193,72 @@ class AssetModelInstaller(private val context: Context) {
             files.add(spec.ttsModelRelativePath)
             files.add(spec.ttsTokensRelativePath)
             
-            // Add espeak-ng-data files for Piper VITS
+            // Add the whole espeak-ng-data tree (espeak needs dict/voices/lang files, not just 3)
             val espeakDir = spec.ttsDataRelativePath
             if (espeakDir.endsWith("espeak-ng-data")) {
-                files.add("$espeakDir/phontab")
-                files.add("$espeakDir/phondata") 
-                files.add("$espeakDir/phonindex")
+                files.addAll(listAssetFilesRecursive(espeakDir))
             }
         }
-        
+
+        // Silero VAD model (used for pause detection)
+        files.add(VAD_PATH)
+
         return files.distinct()
     }
-    
-    private fun calculateTotalSize(filePaths: List<String>): Long {
-        var total = 0L
-        for (path in filePaths) {
-            try {
-                context.assets.open(path).use { stream ->
-                    // For older Android APIs, available() might not be accurate for large files
-                    // But for our placeholder files it's fine, and real models will be downloaded separately
-                    total += stream.available().toLong()
-                }
-            } catch (e: IOException) {
-                Log.w(tag, "Could not get size for asset: $path", e)
-                // File might not exist in assets (placeholder), assume small size
-                total += 1024 // 1KB placeholder
-            }
+
+    private fun listAssetFilesRecursive(dir: String): List<String> {
+        val children = context.assets.list(dir) ?: return emptyList()
+        if (children.isEmpty()) return emptyList() // not a directory (or empty)
+        val out = mutableListOf<String>()
+        for (child in children) {
+            val path = "$dir/$child"
+            val sub = context.assets.list(path)
+            if (sub != null && sub.isNotEmpty()) out.addAll(listAssetFilesRecursive(path))
+            else out.add(path)
         }
-        return total
+        return out
     }
-    
-    private fun copyAssetToFile(assetPath: String, targetFile: File): Long {
-        // Ensure parent directory exists
-        targetFile.parentFile?.mkdirs()
-        
-        var bytesTransferred = 0L
-        
+
+    private fun assetSize(path: String): Long = try {
+        // openFd works for uncompressed assets (.onnx are stored uncompressed via noCompress)
+        context.assets.openFd(path).use { it.length }
+    } catch (e: IOException) {
         try {
-            context.assets.open(assetPath).use { inputStream ->
-                FileOutputStream(targetFile).use { outputStream ->
-                    val buffer = ByteArray(8192)
-                    var bytesRead: Int
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                        outputStream.write(buffer, 0, bytesRead)
-                        bytesTransferred += bytesRead
+            context.assets.open(path).use { it.available().toLong() }
+        } catch (e2: IOException) { 0L }
+    }
+
+    private fun calculateTotalSize(filePaths: List<String>): Long = filePaths.sumOf { assetSize(it) }
+
+    private fun copyAssetToFile(assetPath: String, targetFile: File): Long {
+        targetFile.parentFile?.mkdirs()
+        val tmp = File(targetFile.parentFile, targetFile.name + ".tmp")
+        var bytesTransferred = 0L
+        try {
+            context.assets.open(assetPath).use { input ->
+                FileOutputStream(tmp).use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        output.write(buffer, 0, n)
+                        bytesTransferred += n
                     }
-                    outputStream.flush()
+                    output.flush()
                 }
             }
+            if (bytesTransferred == 0L) throw IOException("Asset is empty or missing: $assetPath")
+            if (targetFile.exists()) targetFile.delete()
+            if (!tmp.renameTo(targetFile)) throw IOException("Could not move $tmp to $targetFile")
         } catch (e: IOException) {
-            Log.e(tag, "Failed to copy asset $assetPath to ${targetFile.absolutePath}", e)
-            // Clean up partial file
-            if (targetFile.exists()) {
-                targetFile.delete()
-            }
-            throw e
+            Log.e(tag, "Failed to copy asset $assetPath", e)
+            tmp.delete()
+            throw IOException("Missing or unreadable model file in APK: $assetPath (${e.message})", e)
         }
-        
-        // Verify file was created and has content
-        if (!targetFile.exists() || targetFile.length() == 0L) {
-            throw IOException("Failed to create target file or file is empty: ${targetFile.absolutePath}")
-        }
-        
-        Log.d(tag, "Successfully copied $assetPath -> ${targetFile.absolutePath} (${bytesTransferred} bytes)")
         return bytesTransferred
+    }
+
+    companion object {
+        const val VAD_PATH = "models/vad/silero_vad.onnx"
     }
 }

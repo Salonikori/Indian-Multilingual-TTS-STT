@@ -15,7 +15,9 @@ data class LanguageSpec(
     val status: ModelStatus,
     /** Only populated from actual recorded measurements; null means not measured. */
     val estimatedBundleBytes: Long? = null,
-    val validationNote: String = "No complete STT+TTS device validation recorded."
+    val validationNote: String = "No complete STT+TTS device validation recorded.",
+    /** Whisper language code (only used when sttArchitecture == WHISPER). */
+    val whisperLanguage: String = "en"
 )
 
 object LanguageRegistry {
@@ -49,6 +51,21 @@ object LanguageRegistry {
         validationNote = "Candidate STT export only; TTS pack and measurements are not recorded."
     )
 
+    /** Piper VITS TTS + Whisper STT. dataDir must point to espeak-ng-data/, not tts/ root. */
+    private fun piperWhisper(code: String, name: String, whisperLang: String, note: String) = LanguageSpec(
+        code = code,
+        displayName = name,
+        sttArchitecture = SttArchitecture.WHISPER,
+        sttModelRelativePath = "models/$code/stt/encoder.int8.onnx",
+        sttTokensRelativePath = "models/$code/stt/tokens.txt",
+        ttsModelRelativePath = "models/$code/tts/model.onnx",
+        ttsTokensRelativePath = "models/$code/tts/tokens.txt",
+        ttsDataRelativePath = "models/$code/tts/espeak-ng-data",
+        status = ModelStatus.NOT_INSTALLED,
+        validationNote = note,
+        whisperLanguage = whisperLang
+    )
+
     /** Indic language where only STT is available; TTS has no sherpa-onnx release. */
     private fun indicSttOnly(code: String, name: String) = LanguageSpec(
         code = code,
@@ -68,14 +85,14 @@ object LanguageRegistry {
     // and a documented listening check for the exact pack revision.
     val languages: List<LanguageSpec> = listOf(
         // Current Implementation: Hindi and English (Depth over Breadth)
-        piperFull("hi", "Hindi"),          // Piper hi_IN-rohan-medium-int8 (needs espeak-ng-data/)
+        piperWhisper("hi", "Hindi", "hi",
+            "Whisper base (multilingual, int8, language=hi) + Piper hi_IN-rohan-medium. WER not measured."),
         LanguageSpec("en", "English", SttArchitecture.WHISPER,
             "models/en/stt/encoder.int8.onnx", "models/en/stt/tokens.txt",
             "models/en/tts/model.onnx", "models/en/tts/tokens.txt",
             // Piper en_US: dataDir must be espeak-ng-data/, same as Hindi  
             "models/en/tts/espeak-ng-data",
             ModelStatus.NOT_INSTALLED,
-            estimatedBundleBytes = 118_000_000, // ESTIMATE (~118 MB) from the model archive listing; not re-measured on the device. Verify with ls -l.
             validationNote = "Whisper tiny.en int8 - previous synthetic corpus test showed 96.8% WER (INVALID measurement), real speech validation required.")
     )
     

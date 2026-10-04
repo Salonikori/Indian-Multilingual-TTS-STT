@@ -8,3 +8,5 @@ models/*/tts/espeak-ng-data/*
 # Allow placeholder files (they have .txt extension in their names)
 !models/*/stt/tokens.txt
 !models/*/tts/tokens.txt
+models/*/stt/*.onnx
+models/vad/*.onnx
