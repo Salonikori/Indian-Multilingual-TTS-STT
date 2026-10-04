@@ -14,7 +14,7 @@ data class LanguageSpec(
     val ttsDataRelativePath: String,
     val status: ModelStatus,
     /** Only populated from actual recorded measurements; null means not measured. */
-    val measuredBundleBytes: Long? = null,
+    val estimatedBundleBytes: Long? = null,
     val validationNote: String = "No complete STT+TTS device validation recorded."
 )
 
@@ -75,7 +75,7 @@ object LanguageRegistry {
             // Piper en_US: dataDir must be espeak-ng-data/, same as Hindi  
             "models/en/tts/espeak-ng-data",
             ModelStatus.NOT_INSTALLED,
-            measuredBundleBytes = 118_000_000, // ~118 MB for Whisper tiny.en int8 (12MB encoder + 105MB decoder + tokens)
+            estimatedBundleBytes = 118_000_000, // ESTIMATE (~118 MB) from the model archive listing; not re-measured on the device. Verify with ls -l.
             validationNote = "Whisper tiny.en int8 - previous synthetic corpus test showed 96.8% WER (INVALID measurement), real speech validation required.")
     )
     
@@ -86,7 +86,7 @@ object LanguageRegistry {
         "models/en/tts/model.onnx", "models/en/tts/tokens.txt",
         "models/en/tts/espeak-ng-data",
         ModelStatus.NOT_INSTALLED,
-        measuredBundleBytes = 200_000_000, // ~200 MB for Whisper base.en int8 (better accuracy but larger)
+        estimatedBundleBytes = 200_000_000, // ESTIMATE (~200 MB), not measured
         validationNote = "Whisper base.en int8 alternative - larger but potentially more accurate than tiny.en")
     */
     

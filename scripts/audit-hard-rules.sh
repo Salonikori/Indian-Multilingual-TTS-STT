@@ -38,10 +38,10 @@ else
   say "PASS: model-lab inference/benchmark Python contains no network clients"
 fi
 manager_hits="$(grep -RIlE 'huggingface_hub|requests\.|urlopen\(' optional_model_manager --include='*.py' || true)"
-if [[ "$manager_hits" == "optional_model_manager/download_candidates.py" ]]; then
-  say "PASS: online model acquisition is isolated to optional_model_manager/download_candidates.py"
+if [[ -z "$manager_hits" ]]; then
+  say "PASS: optional_model_manager has no network-capable code (downloaders live in tools/)"
 else
-  say "FAIL: unexpected network-capable optional manager files: ${manager_hits:-none}"; fail=1
+  say "FAIL: unexpected network-capable optional manager files: $manager_hits"; fail=1
 fi
 if grep -qE 'implementation\("(com\.squareup\.retrofit2|com\.squareup\.okhttp3|io\.ktor:ktor-client|com\.google\.firebase)' app/build.gradle.kts; then
   say "FAIL: unexpected network client dependency"; fail=1

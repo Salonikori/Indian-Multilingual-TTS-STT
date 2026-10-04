@@ -14,10 +14,9 @@ Android 10+ (scoped storage).
 Required local model layout (models_lab/models/):
   stt/{lang}/model.int8.onnx          Indic NeMo CTC (hi ta bn mr gu kn te ml or)
   stt/{lang}/tokens.txt
-  stt/en/encoder.int8.onnx            English Zipformer transducer
-  stt/en/decoder.int8.onnx
-  stt/en/joiner.int8.onnx
-  stt/en/tokens.txt
+  stt/en/tiny.en-encoder.int8.onnx    English Whisper tiny.en (encoder / decoder / tokens)
+  stt/en/tiny.en-decoder.int8.onnx
+  stt/en/tiny.en-tokens.txt
   tts/hi/model.onnx  tts/hi/tokens.txt   Piper hi_IN (+ espeak-ng-data/)
   tts/ml/model.onnx  tts/ml/tokens.txt   Piper ml_IN (+ espeak-ng-data/)
   tts/gu/model.onnx  tts/gu/tokens.txt   mimic3 gu_IN

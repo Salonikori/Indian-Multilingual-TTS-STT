@@ -62,7 +62,7 @@ private fun LanguagesScreen(onBack: () -> Unit, filesDir: File) {
                         }
                         Text("Code: ${spec.code} · STT: ${spec.sttArchitecture}", style = MaterialTheme.typography.bodySmall)
                         Text("Installed files: ${if (bundleBytes > 0) formatBytes(bundleBytes) else "None"}")
-                        Text("Measured model size: ${spec.measuredBundleBytes?.let(::formatBytes) ?: "Not measured"}")
+                        Text("Estimated model size: ${spec.estimatedBundleBytes?.let(::formatBytes) ?: "Not measured"}")
                         Text(spec.validationNote, style = MaterialTheme.typography.bodySmall)
                     }
                 }

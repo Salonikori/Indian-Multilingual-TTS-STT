@@ -65,49 +65,48 @@ class ReliableMessageClient(
         }
     }
 
+    /**
+     * Sends a SPEECH or ALERT message and retries until it is ACKed.
+     * Throws IllegalStateException if the link is down, and rethrows send errors, so the caller can show them.
+     * If no ACK arrives after all retries, a DeliveryMetric with ackRttMillis = -1 is reported (FAILED).
+     */
     suspend fun sendText(text: String, languageCode: String, alert: Boolean = false): String {
-        val id = UUID.randomUUID().toString()
-        val payload = MessagePayload(type = if (alert) MessageType.ALERT else MessageType.SPEECH,
-            messageId = id, seq = sequence.getAndIncrement(),
-            senderId = deviceId,
-            langCode = languageCode, sentAtEpochMs = System.currentTimeMillis(), text = text)
-        
-        sentAt[id] = System.currentTimeMillis()
-        
-        // Check transport connection before sending
         if (transport.connectionState.value !is ConnectionState.Connected) {
             throw IllegalStateException("Transport not connected")
         }
-        
-        transport.send(payload)
-        
-        // Setup retry logic based on message type
-        retryJobs[id] = if (alert) {
-            // ALERT: More aggressive retries (5 attempts, shorter delays)
-            scope.launch {
-                repeat(5) { attempt ->
-                    delay(800L * (attempt + 1)) // 800ms, 1.6s, 2.4s, 3.2s, 4s
-                    if (!sentAt.containsKey(id)) return@launch // ACK received
-                    runCatching { transport.send(payload) }
-                }
-                // Mark as failed after all retries
-                sentAt.remove(id)
-                onMetric(DeliveryMetric(id, -1, -1.0)) // Negative values indicate failure
-            }
-        } else {
-            // SPEECH: Bounded retries (3 attempts, standard delays)
-            scope.launch {
-                repeat(3) { attempt ->
-                    delay(1_500L * (attempt + 1)) // 1.5s, 3s, 4.5s
-                    if (!sentAt.containsKey(id)) return@launch // ACK received
-                    runCatching { transport.send(payload) }
-                }
-                // Mark as failed after all retries  
-                sentAt.remove(id)
-                onMetric(DeliveryMetric(id, -1, -1.0)) // Negative values indicate failure
-            }
+        val id = UUID.randomUUID().toString()
+        val payload = MessagePayload(
+            type = if (alert) MessageType.ALERT else MessageType.SPEECH,
+            messageId = id, seq = sequence.getAndIncrement(),
+            senderId = deviceId,
+            langCode = languageCode, sentAtEpochMs = System.currentTimeMillis(), text = text
+        )
+
+        sentAt[id] = System.currentTimeMillis()
+        try {
+            transport.send(payload)
+        } catch (e: Exception) {
+            sentAt.remove(id)          // nothing was sent, so nothing to track
+            throw e
         }
-        
+
+        // ALERT: 5 retries (0.8 s steps). SPEECH: 3 retries (1.5 s steps).
+        retryJobs[id] = if (alert) launchRetries(id, payload, attempts = 5, stepMillis = 800L)
+        else launchRetries(id, payload, attempts = 3, stepMillis = 1_500L)
         return id
     }
+
+    private fun launchRetries(id: String, payload: MessagePayload, attempts: Int, stepMillis: Long): Job =
+        scope.launch {
+            for (attempt in 1..attempts) {
+                delay(stepMillis * attempt)                 // growing backoff
+                if (!sentAt.containsKey(id)) return@launch  // ACK received
+                runCatching { transport.send(payload) }
+            }
+            delay(stepMillis * (attempts + 1))              // give the last retry time to be ACKed
+            if (sentAt.remove(id) != null) {                // still no ACK: report failure once
+                retryJobs.remove(id)
+                onMetric(DeliveryMetric(id, -1, -1.0))
+            }
+        }
 }
