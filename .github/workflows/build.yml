@@ -74,4 +74,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cp "$APK_PATH" iTantra.apk
+          
+          # Create release if it doesn't exist
+          if ! gh release view v0.2.0-android-test >/dev/null 2>&1; then
+            echo "Creating release v0.2.0-android-test..."
+            gh release create v0.2.0-android-test \
+              --title "iTantra Android Test Build" \
+              --notes "iTantra offline Hindi/English walkie-talkie APK for testing
+
+          - 452MB APK with real speech models
+          - Hindi and English STT/TTS support  
+          - Bluetooth push-to-talk functionality
+          - Requires Android 8.0+ (API 26+), arm64 architecture
+
+          This APK is automatically updated by CI/CD on every successful build." \
+              --prerelease
+          fi
+          
+          # Upload APK to release
           gh release upload v0.2.0-android-test iTantra.apk --clobber
